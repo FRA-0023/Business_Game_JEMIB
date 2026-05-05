@@ -273,13 +273,6 @@ if (is.numeric(vif_vals)) {
 
 cat("\nPredictors with VIF > 5:\n"); print(unique(high5))
 cat("\nPredictors with VIF > 10:\n"); print(unique(high10))
-
-# Condition number (collinearity overall)
-X <- model.matrix(lm_valutazione_AIC_st)
-cond_number <- kappa(X, exact = TRUE)
-cat("\nCondition number (kappa):", cond_number, "\n")
-if (cond_number > 30) cat("-> condizione: possibile multicollinearità elevata (rule of thumb > 30)\n")
-
 ```
 
 
@@ -315,7 +308,7 @@ skim_without_charts(vini)
 
 ### Analisi delle correlazioni
 
-```{r fig.width=10, fig.height=10}
+```{r}
 vini_quant <- vini[, unlist(lapply(vini, is.numeric) == TRUE)]
 colnames(vini_quant)
 
@@ -336,36 +329,50 @@ pairs.panels(vini_quant, lm=T)
 
 ```{r}
 vini_quant_std <- scale(vini_quant)
-
 n_vini <- nrow(vini)
 
-km2_vini <- kmeans(vini_quant_std, centers=2, nstart=100)
-km3_vini <- kmeans(vini_quant_std, centers=3, nstart=100)
-km4_vini <- kmeans(vini_quant_std, centers=4, nstart=100)
+ks <- 2:10
+kms <- lapply(ks, function(k) kmeans(vini_quant_std, centers = k, nstart = 100))
 
-R2_2 <- km2_vini$betweenss/km2_vini$totss
-R2_3 <- km3_vini$betweenss/km3_vini$totss
-R2_4 <- km4_vini$betweenss/km4_vini$totss
+res <- do.call(rbind, lapply(seq_along(kms), function(i) {
+  km <- kms[[i]]; k <- ks[i]
+  R2 <- km$betweenss / km$totss
+  pseudoF <- (km$betweenss / (k - 1)) / (km$tot.withinss / (n_vini - k))
+  data.frame(gruppi = k, R2 = R2, pseudoF = pseudoF)
+}))
 
-pseudoF_2 <- (km2_vini$betweenss/(2-1))/(km2_vini$tot.withinss/(n_vini-2))
-pseudoF_3 <- (km3_vini$betweenss/(3-1))/(km3_vini$tot.withinss/(n_vini-3))
-pseudoF_4 <- (km4_vini$betweenss/(4-1))/(km4_vini$tot.withinss/(n_vini-4))
-
-
-data.frame(
-  gruppi=c(2,3,4),
-  R2=c(R2_2, R2_3, R2_4),
-  pseudoF=c(pseudoF_2,pseudoF_3,pseudoF_4)
-)
+res
 
 ```
 
 Va deciso quale prendere
 
 ```{r}
-km2_vini
-km3_vini
-km4_vini
+library(cluster); library(factoextra)  # install if needed
+v <- scale(vini_quant)
+ks <- 2:10
+kms <- lapply(ks, function(k) kmeans(v, k, nstart=100))
+
+# metrics: R2, pseudoF, silhouette mean
+metrics <- do.call(rbind, lapply(seq_along(kms), function(i){
+  km <- kms[[i]]; k <- ks[i]
+  R2 <- km$betweenss/km$totss
+  pseudoF <- (km$betweenss/(k-1)) / (km$tot.withinss/(nrow(v)-k))
+  sil <- mean(silhouette(km$cluster, dist(v))[, 'sil_width'])
+  data.frame(k=k, R2=R2, pseudoF=pseudoF, sil_width=sil)
+}))
+
+# gap statistic
+set.seed(1)
+gap <- clusGap(v, FUN = kmeans, K.max = 10, B = 50, nstart = 10)
+gap_df <- data.frame(k = 1:10, gap = gap$Tab[, "gap"])
+
+# plots
+par(mfrow = c(1,3))
+plot(metrics$k, metrics$R2, type='b', main='Elbow (R2)')
+plot(metrics$k, metrics$sil_width, type='b', main='Silhouette mean')
+plot(gap_df$k, gap_df$gap, type='b', main='Gap statistic')
+par(mfrow = c(1,1))
 ```
 
 
@@ -391,80 +398,22 @@ head(recensioni_quant)
 
 ```{r}
 recensioni_quant_std <- scale(recensioni_quant)
-
 n_recensioni <- nrow(recensioni)
+ks <- 2:10
 
-km2_recensioni <- kmeans(recensioni_quant_std, centers=2, nstart=100)
-km3_recensioni <- kmeans(recensioni_quant_std, centers=3, nstart=100)
-km4_recensioni <- kmeans(recensioni_quant_std, centers=4, nstart=100)
-km5_recensioni <- kmeans(recensioni_quant_std, centers=5, nstart=100)
-km6_recensioni <- kmeans(recensioni_quant_std, centers=6, nstart=100)
+kms <- lapply(ks, function(k) kmeans(recensioni_quant_std, centers = k, nstart = 100))
 
-R2_2 <- km2_recensioni$betweenss/km2_recensioni$totss
-R2_3 <- km3_recensioni$betweenss/km3_recensioni$totss
-R2_4 <- km4_recensioni$betweenss/km4_recensioni$totss
-R2_5 <- km5_recensioni$betweenss/km5_recensioni$totss
-R2_6 <- km6_recensioni$betweenss/km6_recensioni$totss
+res <- do.call(rbind, lapply(seq_along(kms), function(i) {
+  km <- kms[[i]]; k <- ks[i]
+  R2 <- km$betweenss / km$totss
+  pseudoF <- (km$betweenss / (k - 1)) / (km$tot.withinss / (n_recensioni - k))
+  data.frame(gruppi = k, R2 = R2, pseudoF = pseudoF)
+}))
 
-
-pseudoF_2 <- (km2_recensioni$betweenss/(2-1))/(km2_recensioni$tot.withinss/(n_recensioni-2))
-pseudoF_3 <- (km3_recensioni$betweenss/(3-1))/(km3_recensioni$tot.withinss/(n_recensioni-3))
-pseudoF_4 <- (km4_recensioni$betweenss/(4-1))/(km4_recensioni$tot.withinss/(n_recensioni-4))
-pseudoF_5 <- (km5_recensioni$betweenss/(5-1))/(km5_recensioni$tot.withinss/(n_recensioni-5))
-pseudoF_6 <- (km6_recensioni$betweenss/(6-1))/(km6_recensioni$tot.withinss/(n_recensioni-6))
-
-
-data.frame(
-  gruppi=c(2,3,4,5,6),
-  R2=c(R2_2, R2_3, R2_4, R2_5, R2_6),
-  pseudoF=c(pseudoF_2,pseudoF_3,pseudoF_4, pseudoF_5, pseudoF_6)
-)
+res
 
 ```
 
 
-```{r}
-km2_recensioni$centers
-km3_recensioni$centers
-km4_recensioni$centers
-km5_recensioni$centers
-km6_recensioni$centers
-
-table(km4_recensioni$cluster)
-prop.table(table(km4_recensioni$cluster))
-```
-
-Con 4 cluster ho:
-
-- Età elevata e valutazioni basse (696 u.s. - 34.8%)
-- Età elevata e valutazioni alte (520 u.s. - 26.0%)
-- Età bassa e valutazioni basse (404 u.s. - 20.2%)
-- Età bassa e valutazioni alte (380 u.s. - 19.0%)
-
-6 gruppi mi sebra ottimo (vedi se usare 4, 5,o 6)
-
-
-```{r}
-recensioni$km_6 <- km6_recensioni$cluster
-recensioni$sw_km_6 <- silhouette(
-  km6_recensioni$cluster, 
-  dist(recensioni_quant_std, method = "euclidean")
-)[, "sil_width"]
-  
-summary(recensioni$sw_km_6)
-
-recensioni[recensioni$sw_km_6 < 0.1, ]
-```
-
-
-```{r}
-
-plot(
-     recensioni_quant_std[, "valutazione"], 
-     recensioni_quant_std[, "età"],
-     col = recensioni$km_6,
-     pch=19
-)
-```
 
 
