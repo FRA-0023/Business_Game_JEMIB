@@ -243,17 +243,43 @@ dataset_anziani <- dataset[dataset$fascia_età == "Anziano",]
 
 
 ```{r}
-lm_valutazione_empty <- lm(valutazione ~ 1, dataset)
-lm_valutazione_full <- lm(valutazione ~ .-id_vino-wine_id, dataset)
+vif_vals <- vif(lm_valutazione_AIC_st)
+print(vif_vals)
 
+# se ci sono GVIF (per fattori), riportiamo anche GVIF^(1/(2*df))
+if (is.matrix(vif_vals) && any(colnames(vif_vals) %in% c("GVIF","Df"))) {
+  gvif_table <- as.data.frame(vif_vals)
+  gvif_table$GVIF_adj <- gvif_table$GVIF^(1/(2*gvif_table$Df))
+  print(gvif_table)
+}
 
-lm_valutazione_AIC_st <- step(
-  lm_valutazione_full, 
-  direction="both",
-  scope=list(lower=lm_valutazione_empty, upper=lm_valutazione_full),
-)
+# Segnala predittori con VIF elevato (soglie 5 e 10)
+if (is.numeric(vif_vals)) {
+  high5  <- names(vif_vals)[vif_vals > 5]
+  high10 <- names(vif_vals)[vif_vals > 10]
+} else if (is.matrix(vif_vals)) {
+  # per tabella GVIF adattata
+  adj <- if ("GVIF_adj" %in% colnames(as.data.frame(vif_vals))) {
+    gvif_table$GVIF_adj
+  } else {
+    gvif_table$GVIF_adj
+  }
+  names_adj <- rownames(gvif_table)
+  high5  <- names_adj[adj > 5]
+  high10 <- names_adj[adj > 10]
+} else {
+  high5 <- high10 <- character(0)
+}
 
-summary(lm_valutazione_AIC_st)
+cat("\nPredictors with VIF > 5:\n"); print(unique(high5))
+cat("\nPredictors with VIF > 10:\n"); print(unique(high10))
+
+# Condition number (collinearity overall)
+X <- model.matrix(lm_valutazione_AIC_st)
+cond_number <- kappa(X, exact = TRUE)
+cat("\nCondition number (kappa):", cond_number, "\n")
+if (cond_number > 30) cat("-> condizione: possibile multicollinearità elevata (rule of thumb > 30)\n")
+
 ```
 
 
