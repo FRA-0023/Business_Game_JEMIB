@@ -11,6 +11,7 @@ library(psych)
 library(corrplot)
 library(dplyr)
 library(cluster)
+library(skimr)
 ```
 
 
@@ -21,9 +22,8 @@ vini <- read.csv("vini.csv")
 vini$type <- as.factor(vini$type)
 vini$wine_id <- as.character(vini$wine_id)
 
-nrow(vini)
-colnames(vini)
 head(vini)
+skim_without_charts(vini)
 ```
 
 
@@ -35,8 +35,8 @@ recensioni$nazionalità <- as.factor(recensioni$nazionalità)
 recensioni$sesso <- as.factor(recensioni$sesso)
 recensioni$wine_id <- as.character(recensioni$wine_id)
 
-nrow(recensioni)
-colnames(recensioni)
+
+skim_without_charts(recensioni)
 head(recensioni)
 ```
 
