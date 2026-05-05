@@ -1,6 +1,6 @@
 ---
-title: "Business Game"
-author: "Mattia Lombardo"
+title: "Business Game JEMIB"
+author: "Mattia Lombardo & Francesco Colombini"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -12,6 +12,7 @@ library(corrplot)
 library(dplyr)
 library(cluster)
 library(skimr)
+rm(list=ls())
 ```
 
 
@@ -54,6 +55,19 @@ vini_quant <- vini[,
 
 ```
 
+Descrizione variabili:
+
+- **fixed.acidity** — Acidità fissa: concentrazione di acidi non volatili (es. acido tartarico); unità: g/L  
+- **volatile.acidity** — Acidità volatile: acidi volatili (es. acido acetico); valori elevati indicano odori di aceto; unità: g/L  
+- **citric.acid** — Acido citrico: contribuisce a freschezza e sapidità; unità: g/L  
+- **residual.sugar** — Zucchero residuo: zuccheri non fermentati; indica secco vs dolce; unità: g/L  
+- **chlorides** — Cloruri: sali clorurati nel vino; valori alti possono dare sapore salino; unità: g/L  
+- **free.sulfur.dioxide** — SO2 libera: anidride solforosa non legata, agente antimicrobico/antiossidante; unità: mg/L  
+- **total.sulfur.dioxide** — SO2 totale: somma di SO2 libera e legata; misura protezione complessiva; unità: mg/L  
+- **density** — Densità: massa volumica del vino, correlata a zucchero e alcol; valori ~0.990–1.005 g/cm³  
+- **pH** — pH: misura dell'acidità totale (scala logaritmica); influenza gusto e stabilità microbiologica  
+- **sulphates** — Solfati: sali solfato che influenzano corpo e stabilità; unità: g/L  
+- **alcohol** — Alcol: contenuto alcolico (% vol) che determina corpo e sensazione calorica
 
 ```{r}
 summary(vini)
@@ -107,23 +121,33 @@ corrplot(cor(dataset_quant), method="ellipse")
 ## Valutazioni medie per tipo di vino
 
 
-```{r}
-media_vini <- aggregate(valutazione ~ id_vino+wine_id, data = dataset, FUN = mean)
-media_vini <- media_vini[order(media_vini$valutazione), ]
+```{r, fig.width=6}
+library(ggplot2)
+library(dplyr)
 
-media_vini
+media_vini <- dataset %>%
+  group_by(id_vino) %>%
+  summarise(valutazione = mean(valutazione, na.rm = TRUE)) %>%
+  arrange(valutazione) %>%
+  tail(20)
 
-barplot(
-  height = media_vini$valutazione, 
-  names.arg = media_vini$wine_id,
-  col = "darkred",
-  main = "Valutazione media per vino",
-  xlab = "Vino",
-  ylab = "Valutazione media",
-  las = 2,
-  horiz=T,
-  cex.names = 0.8
-)
+p <- ggplot(media_vini, aes(x = reorder(id_vino, valutazione), y = valutazione, fill = valutazione)) +
+  geom_col(color = "black", width = 0.8) +
+  coord_flip() +
+  scale_fill_gradient(low = "white", high = "#8B0000", guide = guide_colorbar(title = "Valutazione")) +
+  labs(title = "Valutazione media per vino",
+       x = NULL,
+       y = "Valutazione media") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "right",
+    plot.margin = margin(5, 20, 5, 5)
+  )
+
+print(p)
+
 ```
 
 
@@ -155,22 +179,54 @@ summary(dataset$fascia_età)
 
 
 ```{r}
-media_età <- aggregate(valutazione ~ fascia_età, data = dataset, FUN = mean)
-media_età <- media_età[order(media_età$valutazione), ]
 
-media_età
+# --- 3) Riepilogo fasce età e grafico ---
+media_eta <- dataset %>%
+  group_by(fascia_età) %>%
+  summarise(valutazione = mean(valutazione, na.rm = TRUE),
+            sd = sd(valutazione, na.rm = TRUE),
+            n = sum(!is.na(valutazione))) %>%
+  arrange(valutazione)
 
-barplot(
-  height = media_età$valutazione, 
-  names.arg = media_età$fascia_età,
-  col = "darkred",
-  main = "Valutazione media per fascia d'età",
-  xlab = "fascia d'età",
-  ylab = "Valutazione media",
-  las = 2,
-  horiz=T,
-  cex.names = 0.8
-)
+print(media_eta)
+
+media_eta <- media_eta %>% mutate(se = sd / sqrt(pmax(n,1)))
+p_eta <- ggplot(media_eta, aes(x = reorder(fascia_età, valutazione), y = valutazione, fill = valutazione)) +
+  geom_col(color = "black", width = 0.8) +
+  geom_errorbar(aes(ymin = valutazione - se, ymax = valutazione + se), width = 0.2) +
+  coord_flip() +
+  scale_fill_gradient(low = "white", high = "#8B0000") +
+  labs(title = "Valutazione media per fascia d'età", x = NULL, y = "Valutazione media") +
+  theme_minimal() + theme(axis.text.y = element_text(size = 9))
+print(p_eta)
+
+# --- 4) Statistiche sulle fasce età ---
+dataset$fascia_eta2 <- factor(dataset$fascia_età)
+mod_aov <- aov(valutazione ~ fascia_età, data = dataset)
+cat("\n--- ANOVA standard ---\n"); print(summary(mod_aov))
+
+cat("\nShapiro-Wilk residui:\n"); print(shapiro.test(residuals(mod_aov)))
+
+if (!requireNamespace("car", quietly = TRUE)) install.packages("car")
+library(car)
+cat("\nLevene's Test:\n"); print(leveneTest(valutazione ~ fascia_età, data = dataset))
+
+cat("\nTukey HSD:\n"); print(TukeyHSD(mod_aov))
+
+cat("\n--- Welch ANOVA ---\n"); print(oneway.test(valutazione ~ fascia_età, data = dataset, var.equal = FALSE))
+
+cat("\n--- Kruskal-Wallis ---\n"); print(kruskal.test(valutazione ~ fascia_età, data = dataset))
+
+cat("\n--- Games-Howell post-hoc ---\n")
+gh <- dataset %>% filter(!is.na(valutazione)) %>% games_howell_test(valutazione ~ fascia_età)
+print(gh)
+
+# --- 5) Diagnostic plots (optional, stampa in output grafico) ---
+par(mfrow = c(1,2))
+plot(mod_aov, which = 1) # Residuals vs Fitted
+plot(mod_aov, which = 2) # Q-Q plot
+par(mfrow = c(1,1))
+
 ```
 
 
@@ -191,22 +247,19 @@ lm_valutazione_empty <- lm(valutazione ~ 1, dataset)
 lm_valutazione_full <- lm(valutazione ~ .-id_vino-wine_id, dataset)
 
 
-lm_valutazione_BIC_st <- step(
+lm_valutazione_AIC_st <- step(
   lm_valutazione_full, 
   direction="both",
   scope=list(lower=lm_valutazione_empty, upper=lm_valutazione_full),
 )
 
-summary(lm_valutazione_BIC_st)
+summary(lm_valutazione_AIC_st)
 ```
 
 
 - volatile.acidity effetto negativo estremamente significativo, si stima che in media ogni aumento di uno di volatile.acidity determini una diminuzione del punteggio di 1.4665, tenendo fisse le altre variabili
 
 etc...
-
-
-# SERIO
 
 
 ```{r}
@@ -221,19 +274,13 @@ set.seed(1000)
 
 ### Analisi del summary
 
-
 ```{r}
-nrow(vini)
-```
-
-
-```{r}
-summary(vini)
+skim_without_charts(vini)
 ```
 
 - Dataset composto da 8 vini bianchi e 12 vini rossi.
 
-- Tasso alcolico (alcohol), misurato il mL/dL(????) varia da 8.50 a 13.550, con 25% inferiore minore di 9.908, 25% superiore maggiore di 11.240 e mediana a 10.490.Valore medio 10.658
+- Tasso alcolico (alcohol), misurato il mL/dL varia da 8.50 a 13.550, con 25% inferiore minore di 9.908, 25% superiore maggiore di 11.240 e mediana a 10.490.Valore medio 10.658
 
 - solfati (sulphates), misurati in g/dm^3 (??? controlla), varia da 0.24 a 0.79, il 25% ha valore inferiore a 0.49 e 25% superiore a 0.6325, neduaba 9,5750 e media 0.5670
 
@@ -242,7 +289,7 @@ summary(vini)
 
 ### Analisi delle correlazioni
 
-```{r fig.width=8, fig.height=8}
+```{r fig.width=10, fig.height=10}
 vini_quant <- vini[, unlist(lapply(vini, is.numeric) == TRUE)]
 colnames(vini_quant)
 
@@ -257,7 +304,8 @@ pairs.panels(vini_quant, lm=T)
 ...
 
 
-### Clustering dei vini (su matrice dati standardizzata per evitare che le variabili pesino in base all'ordine di grandezza, che ha solo ragioni "chimiche")
+### Clustering dei vini 
+(su matrice dati standardizzata per evitare che le variabili pesino in base all'ordine di grandezza, che ha solo ragioni "chimiche")
 
 
 ```{r}
