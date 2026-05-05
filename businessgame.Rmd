@@ -2,418 +2,413 @@
 title: "Business Game JEMIB"
 author: "Mattia Lombardo & Francesco Colombini"
 date: "`r Sys.Date()`"
-output: html_document
+output: pdf_document
+  engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(dplyr)
+library(ggplot2)
 library(psych)
 library(corrplot)
-library(dplyr)
 library(cluster)
 library(skimr)
-rm(list=ls())
-```
+library(car)
 
+set.seed(1000)
+```
 
 # Importazione dataset
 
 ```{r}
 vini <- read.csv("vini.csv")
+recensioni <- read.csv("recensioni.csv", row.names = "review_id")
+
+# Tipi corretti
 vini$type <- as.factor(vini$type)
 vini$wine_id <- as.character(vini$wine_id)
-
-head(vini)
-skim_without_charts(vini)
-```
-
-
-
-```{r}
-recensioni <- read.csv("recensioni.csv", row.names="review_id")
 
 recensioni$nazionalità <- as.factor(recensioni$nazionalità)
 recensioni$sesso <- as.factor(recensioni$sesso)
 recensioni$wine_id <- as.character(recensioni$wine_id)
 
+# Controlli qualità dati
+cat("Duplicati wine_id in vini:", sum(duplicated(vini$wine_id)), "\n")
+cat("NA wine_id in vini:", sum(is.na(vini$wine_id)), "\n")
+cat("NA wine_id in recensioni:", sum(is.na(recensioni$wine_id)), "\n")
 
-skim_without_charts(recensioni)
+cat("Wine senza recensioni:", nrow(anti_join(vini, recensioni, by = "wine_id")), "\n")
+cat("Recensioni senza wine:", nrow(anti_join(recensioni, vini, by = "wine_id")), "\n")
+
+head(vini)
+skim_without_charts(vini)
+
 head(recensioni)
+skim_without_charts(recensioni)
 ```
 
-
-
-## Descrittive dataset vini
+# Descrittive dataset vini
 
 ```{r}
+vini_quant <- vini[, c(
+  "fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar",
+  "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide",
+  "density", "pH", "sulphates", "alcohol"
+)]
 
-vini_quant <- vini[, 
-                  c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar", "chlorides", 
-                    "free.sulfur.dioxide", "total.sulfur.dioxide", "density", "pH", "sulphates",
-                    "alcohol")
-                  ]
+summary(vini_quant)
 
+corrplot(cor(vini_quant, use = "pairwise.complete.obs"), method = "ellipse")
+pairs.panels(vini_quant, lm = TRUE)
 ```
 
-Descrizione variabili:
-
-- **fixed.acidity** — Acidità fissa: concentrazione di acidi non volatili (es. acido tartarico); unità: g/L  
-- **volatile.acidity** — Acidità volatile: acidi volatili (es. acido acetico); valori elevati indicano odori di aceto; unità: g/L  
-- **citric.acid** — Acido citrico: contribuisce a freschezza e sapidità; unità: g/L  
-- **residual.sugar** — Zucchero residuo: zuccheri non fermentati; indica secco vs dolce; unità: g/L  
-- **chlorides** — Cloruri: sali clorurati nel vino; valori alti possono dare sapore salino; unità: g/L  
-- **free.sulfur.dioxide** — SO2 libera: anidride solforosa non legata, agente antimicrobico/antiossidante; unità: mg/L  
-- **total.sulfur.dioxide** — SO2 totale: somma di SO2 libera e legata; misura protezione complessiva; unità: mg/L  
-- **density** — Densità: massa volumica del vino, correlata a zucchero e alcol; valori ~0.990–1.005 g/cm³  
-- **pH** — pH: misura dell'acidità totale (scala logaritmica); influenza gusto e stabilità microbiologica  
-- **sulphates** — Solfati: sali solfato che influenzano corpo e stabilità; unità: g/L  
-- **alcohol** — Alcol: contenuto alcolico (% vol) che determina corpo e sensazione calorica
-
-```{r}
-summary(vini)
-```
-
-
-```{r}
-corrplot(cor(vini_quant), method="ellipse")
-```
-
-
-```{r}
-pairs.panels(vini_quant, lm=T)
-```
-
-
-
-## Descrittiva dataset recensioni
-
+# Descrittive dataset recensioni
 
 ```{r}
 recensioni_quant <- recensioni[, c("età", "valutazione")]
-summary(recensioni)
 
-corrplot(cor(recensioni_quant), method="ellipse")
-pairs.panels(recensioni_quant, lm=T)
+summary(recensioni_quant)
+
+corrplot(cor(recensioni_quant, use = "pairwise.complete.obs"), method = "ellipse")
+pairs.panels(recensioni_quant, lm = TRUE)
 ```
 
-
-
-
-## Creazione dataset join
+# Creazione dataset join
 
 ```{r}
-dataset <- full_join(vini, recensioni, by="wine_id")
+# Per analisi statistiche e ML conviene tenere solo i record completi
+dataset <- inner_join(recensioni, vini, by = "wine_id")
+
+# alias utile nelle formule
+dataset$eta <- dataset$età
+
+# assicura i tipi dopo il join
+dataset$sesso <- as.factor(dataset$sesso)
+dataset$nazionalità <- as.factor(dataset$nazionalità)
+dataset$type <- as.factor(dataset$type)
+
 colnames(dataset)
 head(dataset)
+summary(dataset)
 ```
-
-## Descrittive dataset
 
 ```{r}
-summary(dataset)
-dataset_quant <- dataset[ , c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar", "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide", "density", "pH", "sulphates", "alcohol", "età", "valutazione")]
+dataset_quant <- dataset[, c(
+  "fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar",
+  "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide",
+  "density", "pH", "sulphates", "alcohol", "eta", "valutazione"
+)]
 
-corrplot(cor(dataset_quant), method="ellipse")
+corrplot(cor(dataset_quant, use = "pairwise.complete.obs"), method = "ellipse")
 ```
 
+# Valutazioni medie per vino
 
-
-## Valutazioni medie per tipo di vino
-
-
-```{r, fig.width=6}
-library(ggplot2)
-library(dplyr)
-
+```{r, fig.width=7, fig.height=6}
 media_vini <- dataset %>%
-  group_by(id_vino) %>%
-  summarise(valutazione = mean(valutazione, na.rm = TRUE)) %>%
-  arrange(valutazione) %>%
-  tail(20)
+  group_by(wine_id) %>%
+  summarise(
+    valutazione = mean(valutazione, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(valutazione)) %>%
+  slice_head(n = 20)
 
-p <- ggplot(media_vini, aes(x = reorder(id_vino, valutazione), y = valutazione, fill = valutazione)) +
+ggplot(media_vini, aes(x = reorder(wine_id, valutazione), y = valutazione, fill = valutazione)) +
   geom_col(color = "black", width = 0.8) +
   coord_flip() +
   scale_fill_gradient(low = "white", high = "#8B0000", guide = guide_colorbar(title = "Valutazione")) +
-  labs(title = "Valutazione media per vino",
-       x = NULL,
-       y = "Valutazione media") +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 9),
-    plot.title = element_text(size = 14, face = "bold"),
-    legend.position = "right",
-    plot.margin = margin(5, 20, 5, 5)
-  )
-
-print(p)
-
+  labs(title = "Top 20 vini per valutazione media", x = NULL, y = "Valutazione media") +
+  theme_minimal()
 ```
 
-
-## Valutazioni medie per età
-
-Classi d'età:
-
-18–25: Ragazzi
-26–35: Giovani
-36–50: Adulti
-51–65: Maturi
-65: Anziani
-
+# Valutazioni medie per età
 
 ```{r}
-summary(dataset$età)
+summary(dataset$eta)
 
-dataset$fascia_età <- cut(recensioni$età, 
-     breaks = c(0, 26, 36, 51, 65, Inf), 
-     labels = c("Ragazzo", "Giovane", "Adulto", "Maturo", "Anziano"),
-     right = FALSE
- )
-
+dataset$fascia_età <- cut(
+  dataset$eta,
+  breaks = c(18, 26, 36, 51, 65, Inf),
+  labels = c("Ragazzo", "Giovane", "Adulto", "Maturo", "Anziano"),
+  right = FALSE,
+  ordered_result = TRUE
+)
 
 summary(dataset$fascia_età)
 ```
 
-
-
-
-```{r}
-
-# --- 3) Riepilogo fasce età e grafico ---
+```{r, fig.width=7, fig.height=6}
 media_eta <- dataset %>%
   group_by(fascia_età) %>%
-  summarise(valutazione = mean(valutazione, na.rm = TRUE),
-            sd = sd(valutazione, na.rm = TRUE),
-            n = sum(!is.na(valutazione))) %>%
+  summarise(
+    valutazione = mean(valutazione, na.rm = TRUE),
+    sd = sd(valutazione, na.rm = TRUE),
+    n = sum(!is.na(valutazione)),
+    .groups = "drop"
+  ) %>%
+  mutate(se = sd / sqrt(pmax(n, 1))) %>%
   arrange(valutazione)
 
 print(media_eta)
 
-media_eta <- media_eta %>% mutate(se = sd / sqrt(pmax(n,1)))
-p_eta <- ggplot(media_eta, aes(x = reorder(fascia_età, valutazione), y = valutazione, fill = valutazione)) +
+ggplot(media_eta, aes(x = reorder(fascia_età, valutazione), y = valutazione, fill = valutazione)) +
   geom_col(color = "black", width = 0.8) +
   geom_errorbar(aes(ymin = valutazione - se, ymax = valutazione + se), width = 0.2) +
   coord_flip() +
   scale_fill_gradient(low = "white", high = "#8B0000") +
   labs(title = "Valutazione media per fascia d'età", x = NULL, y = "Valutazione media") +
-  theme_minimal() + theme(axis.text.y = element_text(size = 9))
-print(p_eta)
+  theme_minimal()
+```
 
-# --- 4) Statistiche sulle fasce età ---
-dataset$fascia_eta2 <- factor(dataset$fascia_età)
+## Test statistici sulle fasce d'età
+
+```{r}
 mod_aov <- aov(valutazione ~ fascia_età, data = dataset)
-cat("\n--- ANOVA standard ---\n"); print(summary(mod_aov))
 
-cat("\nShapiro-Wilk residui:\n"); print(shapiro.test(residuals(mod_aov)))
+cat("\n--- ANOVA standard ---\n")
+print(summary(mod_aov))
 
-if (!requireNamespace("car", quietly = TRUE)) install.packages("car")
-library(car)
-cat("\nLevene's Test:\n"); print(leveneTest(valutazione ~ fascia_età, data = dataset))
+cat("\n--- Shapiro-Wilk sui residui ---\n")
+print(shapiro.test(residuals(mod_aov)))
 
-cat("\nTukey HSD:\n"); print(TukeyHSD(mod_aov))
+cat("\n--- Bartlett test omogeneità varianze ---\n")
+print(bartlett.test(valutazione ~ fascia_età, data = dataset))
 
-cat("\n--- Welch ANOVA ---\n"); print(oneway.test(valutazione ~ fascia_età, data = dataset, var.equal = FALSE))
+cat("\n--- Tukey HSD ---\n")
+print(TukeyHSD(mod_aov))
 
-cat("\n--- Kruskal-Wallis ---\n"); print(kruskal.test(valutazione ~ fascia_età, data = dataset))
+cat("\n--- Welch ANOVA ---\n")
+print(oneway.test(valutazione ~ fascia_età, data = dataset, var.equal = FALSE))
 
-cat("\n--- Games-Howell post-hoc ---\n")
-gh <- dataset %>% filter(!is.na(valutazione)) %>% games_howell_test(valutazione ~ fascia_età)
-print(gh)
+cat("\n--- Kruskal-Wallis ---\n")
+print(kruskal.test(valutazione ~ fascia_età, data = dataset))
 
-# --- 5) Diagnostic plots (optional, stampa in output grafico) ---
-par(mfrow = c(1,2))
-plot(mod_aov, which = 1) # Residuals vs Fitted
-plot(mod_aov, which = 2) # Q-Q plot
-par(mfrow = c(1,1))
-
+par(mfrow = c(1, 2))
+plot(mod_aov, which = 1)
+plot(mod_aov, which = 2)
+par(mfrow = c(1, 1))
 ```
 
-
-## Graduatorie vini per fascia d'età
-
-```{r}
-dataset_ragazzi <- dataset[dataset$fascia_età == "Ragazzo",]
-dataset_giovani <- dataset[dataset$fascia_età == "Giovane",]
-dataset_adulti <- dataset[dataset$fascia_età == "Adulto",]
-dataset_maturi <- dataset[dataset$fascia_età == "Maturo",]
-dataset_anziani <- dataset[dataset$fascia_età == "Anziano",]
-```
-
-
+# Regressione lineare e multicollinearità
 
 ```{r}
-vif_vals <- vif(lm_valutazione_AIC_st)
-print(vif_vals)
+lm_valutazione_AIC_st <- lm(
+  valutazione ~ eta + sesso + nazionalità + type +
+    fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides +
+    free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+  data = dataset
+)
 
-# se ci sono GVIF (per fattori), riportiamo anche GVIF^(1/(2*df))
-if (is.matrix(vif_vals) && any(colnames(vif_vals) %in% c("GVIF","Df"))) {
-  gvif_table <- as.data.frame(vif_vals)
-  gvif_table$GVIF_adj <- gvif_table$GVIF^(1/(2*gvif_table$Df))
-  print(gvif_table)
-}
+summary(lm_valutazione_AIC_st)
 
-# Segnala predittori con VIF elevato (soglie 5 e 10)
-if (is.numeric(vif_vals)) {
-  high5  <- names(vif_vals)[vif_vals > 5]
-  high10 <- names(vif_vals)[vif_vals > 10]
-} else if (is.matrix(vif_vals)) {
-  # per tabella GVIF adattata
-  adj <- if ("GVIF_adj" %in% colnames(as.data.frame(vif_vals))) {
-    gvif_table$GVIF_adj
-  } else {
-    gvif_table$GVIF_adj
+vif_vals <- tryCatch(
+  vif(lm_valutazione_AIC_st),
+  error = function(e) {
+    cat("Errore nel calcolo VIF:", e$message, "\n")
+    return(NULL)
   }
-  names_adj <- rownames(gvif_table)
-  high5  <- names_adj[adj > 5]
-  high10 <- names_adj[adj > 10]
-} else {
-  high5 <- high10 <- character(0)
+)
+
+if (!is.null(vif_vals)) {
+  print(vif_vals)
+
+  # se ci sono GVIF (per fattori), riportiamo anche GVIF^(1/(2*df))
+  if (is.matrix(vif_vals) && all(c("GVIF", "Df") %in% colnames(vif_vals))) {
+    gvif_table <- as.data.frame(vif_vals)
+    gvif_table$GVIF_adj <- gvif_table$GVIF^(1 / (2 * gvif_table$Df))
+    print(gvif_table)
+  }
+
+  # Segnala predittori con VIF elevato (soglie 5 e 10)
+  if (is.numeric(vif_vals)) {
+    high5 <- names(vif_vals)[vif_vals > 5]
+    high10 <- names(vif_vals)[vif_vals > 10]
+  } else if (is.matrix(vif_vals)) {
+    adj <- gvif_table$GVIF_adj
+    names_adj <- rownames(gvif_table)
+    high5 <- names_adj[adj > 5]
+    high10 <- names_adj[adj > 10]
+  } else {
+    high5 <- high10 <- character(0)
+  }
+
+  cat("\nPredictors with VIF > 5:\n")
+  print(unique(high5))
+  cat("\nPredictors with VIF > 10:\n")
+  print(unique(high10))
 }
 
-cat("\nPredictors with VIF > 5:\n"); print(unique(high5))
-cat("\nPredictors with VIF > 10:\n"); print(unique(high10))
+# Condition number (collinearity overall)
+X <- model.matrix(lm_valutazione_AIC_st)
+cond_number <- kappa(X, exact = TRUE)
 ```
 
-
-- volatile.acidity effetto negativo estremamente significativo, si stima che in media ogni aumento di uno di volatile.acidity determini una diminuzione del punteggio di 1.4665, tenendo fisse le altre variabili
-
-etc...
-
+# Graduatorie vini per fascia d'età
 
 ```{r}
-set.seed(1000)
+dataset_ragazzi <- dataset[dataset$fascia_età == "Ragazzo", ]
+dataset_giovani <- dataset[dataset$fascia_età == "Giovane", ]
+dataset_adulti <- dataset[dataset$fascia_età == "Adulto", ]
+dataset_maturi <- dataset[dataset$fascia_età == "Maturo", ]
+dataset_anziani <- dataset[dataset$fascia_età == "Anziano", ]
+
+cat("Ragazzi:", nrow(dataset_ragazzi), "\n")
+cat("Giovani:", nrow(dataset_giovani), "\n")
+cat("Adulti:", nrow(dataset_adulti), "\n")
+cat("Maturi:", nrow(dataset_maturi), "\n")
+cat("Anziani:", nrow(dataset_anziani), "\n")
 ```
 
 # Descrittiva e clustering vini
 
-
 ## Descrittiva
-
-
-### Analisi del summary
 
 ```{r}
 skim_without_charts(vini)
+summary(vini_quant)
+
+corrplot(cor(vini_quant, use = "pairwise.complete.obs"), method = "number", type = "lower")
+pairs.panels(vini_quant, lm = TRUE)
 ```
 
-- Dataset composto da 8 vini bianchi e 12 vini rossi.
-
-- Tasso alcolico (alcohol), misurato il mL/dL varia da 8.50 a 13.550, con 25% inferiore minore di 9.908, 25% superiore maggiore di 11.240 e mediana a 10.490.Valore medio 10.658
-
-- solfati (sulphates), misurati in g/dm^3 (??? controlla), varia da 0.24 a 0.79, il 25% ha valore inferiore a 0.49 e 25% superiore a 0.6325, neduaba 9,5750 e media 0.5670
-
-- ...
-
-
-### Analisi delle correlazioni
+## Clustering dei vini
 
 ```{r}
-vini_quant <- vini[, unlist(lapply(vini, is.numeric) == TRUE)]
-colnames(vini_quant)
-
-corrplot(cor(vini_quant), method="number", type="lower")
-```
-
-```{r fig.width=10, fig.height=10}
-pairs.panels(vini_quant, lm=T)
-```
-
-
-...
-
-
-### Clustering dei vini 
-(su matrice dati standardizzata per evitare che le variabili pesino in base all'ordine di grandezza, che ha solo ragioni "chimiche")
-
-
-```{r}
+# Standardizzazione
 vini_quant_std <- scale(vini_quant)
-n_vini <- nrow(vini)
+dist_vini <- dist(vini_quant_std)
 
 ks <- 2:10
-kms <- lapply(ks, function(k) kmeans(vini_quant_std, centers = k, nstart = 100))
 
-res <- do.call(rbind, lapply(seq_along(kms), function(i) {
-  km <- kms[[i]]; k <- ks[i]
-  R2 <- km$betweenss / km$totss
-  pseudoF <- (km$betweenss / (k - 1)) / (km$tot.withinss / (n_vini - k))
-  data.frame(gruppi = k, R2 = R2, pseudoF = pseudoF)
+metrics_vini <- do.call(rbind, lapply(ks, function(k) {
+  km <- kmeans(vini_quant_std, centers = k, nstart = 100)
+  sil <- mean(silhouette(km$cluster, dist_vini)[, "sil_width"])
+  data.frame(
+    k = k,
+    R2 = km$betweenss / km$totss,
+    pseudoF = (km$betweenss / (k - 1)) / (km$tot.withinss / (nrow(vini_quant_std) - k)),
+    silhouette = sil
+  )
 }))
 
-res
+print(metrics_vini)
 
+gap_vini <- clusGap(vini_quant_std, FUN = kmeans, K.max = 10, B = 50, nstart = 10)
+print(gap_vini$Tab)
+
+par(mfrow = c(1, 3))
+plot(metrics_vini$k, metrics_vini$R2, type = "b", pch = 19, xlab = "k", ylab = "R2", main = "Elbow (R2)")
+plot(metrics_vini$k, metrics_vini$silhouette, type = "b", pch = 19, xlab = "k", ylab = "Silhouette", main = "Silhouette media")
+plot(metrics_vini$k, metrics_vini$pseudoF, type = "b", pch = 19, xlab = "k", ylab = "Pseudo-F", main = "Pseudo-F")
+par(mfrow = c(1, 1))
+
+# k scelto in base alla silhouette
+k_best_vini <- metrics_vini$k[which.max(metrics_vini$silhouette)]
+cat("k migliore per i vini:", k_best_vini, "\n")
+
+km_vini <- kmeans(vini_quant_std, centers = k_best_vini, nstart = 200)
+vini$cluster_km <- factor(km_vini$cluster)
+
+print(table(vini$cluster_km))
+
+# Profilazione cluster
+profilo_vini <- vini %>%
+  mutate(cluster_km = factor(km_vini$cluster)) %>%
+  group_by(cluster_km) %>%
+  summarise(
+    across(all_of(colnames(vini_quant)), mean, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+print(profilo_vini)
+
+# Visualizzazione su PCA
+pca_vini <- prcomp(vini_quant_std)
+plot(
+  pca_vini$x[, 1], pca_vini$x[, 2],
+  col = as.integer(vini$cluster_km),
+  pch = 19,
+  xlab = "PC1",
+  ylab = "PC2",
+  main = "Clustering dei vini su PCA"
+)
+legend("topright", legend = levels(vini$cluster_km), col = seq_along(levels(vini$cluster_km)), pch = 19)
 ```
-
-Va deciso quale prendere
-
-```{r}
-library(cluster); library(factoextra)  # install if needed
-v <- scale(vini_quant)
-ks <- 2:10
-kms <- lapply(ks, function(k) kmeans(v, k, nstart=100))
-
-# metrics: R2, pseudoF, silhouette mean
-metrics <- do.call(rbind, lapply(seq_along(kms), function(i){
-  km <- kms[[i]]; k <- ks[i]
-  R2 <- km$betweenss/km$totss
-  pseudoF <- (km$betweenss/(k-1)) / (km$tot.withinss/(nrow(v)-k))
-  sil <- mean(silhouette(km$cluster, dist(v))[, 'sil_width'])
-  data.frame(k=k, R2=R2, pseudoF=pseudoF, sil_width=sil)
-}))
-
-# gap statistic
-set.seed(1)
-gap <- clusGap(v, FUN = kmeans, K.max = 10, B = 50, nstart = 10)
-gap_df <- data.frame(k = 1:10, gap = gap$Tab[, "gap"])
-
-# plots
-par(mfrow = c(1,3))
-plot(metrics$k, metrics$R2, type='b', main='Elbow (R2)')
-plot(metrics$k, metrics$sil_width, type='b', main='Silhouette mean')
-plot(gap_df$k, gap_df$gap, type='b', main='Gap statistic')
-par(mfrow = c(1,1))
-```
-
-
 
 # Descrittiva e clustering recensioni
-
 
 ```{r}
 summary(recensioni)
 
-recensioni_quant <- recensioni[, unlist(lapply(recensioni, is.numeric))]
+recensioni_quant <- recensioni[, c("età", "valutazione")]
 head(recensioni_quant)
+summary(recensioni_quant)
 ```
 
-
-
-## ...
-
-
-
-## K-means recensioni (su variabili standardizzate)
-
+## Clustering recensioni
 
 ```{r}
 recensioni_quant_std <- scale(recensioni_quant)
-n_recensioni <- nrow(recensioni)
-ks <- 2:10
+dist_rec <- dist(recensioni_quant_std)
 
-kms <- lapply(ks, function(k) kmeans(recensioni_quant_std, centers = k, nstart = 100))
+ks_rec <- 2:10
 
-res <- do.call(rbind, lapply(seq_along(kms), function(i) {
-  km <- kms[[i]]; k <- ks[i]
-  R2 <- km$betweenss / km$totss
-  pseudoF <- (km$betweenss / (k - 1)) / (km$tot.withinss / (n_recensioni - k))
-  data.frame(gruppi = k, R2 = R2, pseudoF = pseudoF)
+metrics_rec <- do.call(rbind, lapply(ks_rec, function(k) {
+  km <- kmeans(recensioni_quant_std, centers = k, nstart = 100)
+  sil <- mean(silhouette(km$cluster, dist_rec)[, "sil_width"])
+  data.frame(
+    k = k,
+    R2 = km$betweenss / km$totss,
+    pseudoF = (km$betweenss / (k - 1)) / (km$tot.withinss / (nrow(recensioni_quant_std) - k)),
+    silhouette = sil
+  )
 }))
 
-res
+print(metrics_rec)
 
+gap_rec <- clusGap(recensioni_quant_std, FUN = kmeans, K.max = 10, B = 50, nstart = 10)
+print(gap_rec$Tab)
+
+par(mfrow = c(1, 3))
+plot(metrics_rec$k, metrics_rec$R2, type = "b", pch = 19, xlab = "k", ylab = "R2", main = "Elbow (R2)")
+plot(metrics_rec$k, metrics_rec$silhouette, type = "b", pch = 19, xlab = "k", ylab = "Silhouette", main = "Silhouette media")
+plot(metrics_rec$k, metrics_rec$pseudoF, type = "b", pch = 19, xlab = "k", ylab = "Pseudo-F", main = "Pseudo-F")
+par(mfrow = c(1, 1))
+
+k_best_rec <- metrics_rec$k[which.max(metrics_rec$silhouette)]
+cat("k migliore per le recensioni:", k_best_rec, "\n")
+
+km_rec <- kmeans(recensioni_quant_std, centers = k_best_rec, nstart = 200)
+recensioni$cluster_km <- factor(km_rec$cluster)
+
+print(table(recensioni$cluster_km))
+
+# Profilazione cluster
+profilo_rec <- recensioni %>%
+  mutate(cluster_km = factor(km_rec$cluster)) %>%
+  group_by(cluster_km) %>%
+  summarise(
+    across(where(is.numeric), mean, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+print(profilo_rec)
+
+# Visualizzazione su PCA
+pca_rec <- prcomp(recensioni_quant_std)
+plot(
+  pca_rec$x[, 1], pca_rec$x[, 2],
+  col = as.integer(recensioni$cluster_km),
+  pch = 19,
+  xlab = "PC1",
+  ylab = "PC2",
+  main = "Clustering recensioni su PCA"
+)
+legend("topright", legend = levels(recensioni$cluster_km), col = seq_along(levels(recensioni$cluster_km)), pch = 19)
 ```
-
-
-
-
