@@ -197,9 +197,7 @@ par(mfrow = c(1, 1))
 
 ```{r}
 lm_valutazione_AIC_st <- lm(
-  valutazione ~ eta + sesso + nazionalità + type +
-    fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides +
-    free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+  valutazione ~ .,
   data = dataset
 )
 
@@ -353,6 +351,7 @@ summary(recensioni_quant)
 ## Clustering recensioni
 
 ```{r}
+
 recensioni_quant_std <- scale(recensioni_quant)
 dist_rec <- dist(recensioni_quant_std)
 
@@ -380,15 +379,15 @@ plot(metrics_rec$k, metrics_rec$silhouette, type = "b", pch = 19, xlab = "k", yl
 plot(metrics_rec$k, metrics_rec$pseudoF, type = "b", pch = 19, xlab = "k", ylab = "Pseudo-F", main = "Pseudo-F")
 par(mfrow = c(1, 1))
 
-k_best_rec <- metrics_rec$k[which.max(metrics_rec$silhouette)]
-cat("k migliore per le recensioni:", k_best_rec, "\n")
+# scelta consigliata: k che massimizza lo pseudoF, se interpretativamente sensato
+k_best_rec <- metrics_rec$k[which.max(metrics_rec$pseudoF)]
+cat("k scelto per le recensioni:", k_best_rec, "\n")
 
 km_rec <- kmeans(recensioni_quant_std, centers = k_best_rec, nstart = 200)
 recensioni$cluster_km <- factor(km_rec$cluster)
 
 print(table(recensioni$cluster_km))
 
-# Profilazione cluster
 profilo_rec <- recensioni %>%
   mutate(cluster_km = factor(km_rec$cluster)) %>%
   group_by(cluster_km) %>%
@@ -400,15 +399,11 @@ profilo_rec <- recensioni %>%
 
 print(profilo_rec)
 
-# Visualizzazione su PCA
-pca_rec <- prcomp(recensioni_quant_std)
-plot(
-  pca_rec$x[, 1], pca_rec$x[, 2],
-  col = as.integer(recensioni$cluster_km),
-  pch = 19,
-  xlab = "PC1",
-  ylab = "PC2",
-  main = "Clustering recensioni su PCA"
-)
-legend("topright", legend = levels(recensioni$cluster_km), col = seq_along(levels(recensioni$cluster_km)), pch = 19)
+ggplot(
+  data = cbind(recensioni_quant, cluster = recensioni$cluster_km),
+  aes(x = età, y = valutazione, color = cluster)
+) +
+  geom_point(alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Clustering recensioni su variabili originali", color = "Cluster")
 ```
