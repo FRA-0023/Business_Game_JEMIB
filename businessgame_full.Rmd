@@ -374,7 +374,7 @@ kable(distribuzione_fasce, caption = "Distribuzione per Fascia d'Età") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
-```{r grafico-fasce-eta}
+```{r grafico-fasce-eta, fig.height=6, fig.width=6}
 media_eta <- dataset %>%
   group_by(fascia_eta) %>%
   summarise(
@@ -411,7 +411,7 @@ ggplot(media_eta, aes(x = fascia_eta, y = media, fill = fascia_eta)) +
 
 Il boxplot integra il grafico delle medie mostrando la distribuzione completa: è utile per rilevare se le differenze tra fasce sono dovute a variazioni sistematiche o a singoli valori estremi — un'informazione cruciale per decidere se personalizzare la gamma di prodotti per segmento.
 
-```{r boxplot-eta}
+```{r boxplot-eta, fig.height=6, fig.width=6}
 ggplot(dataset, aes(x = fascia_eta, y = valutazione, fill = fascia_eta)) +
   geom_boxplot(alpha = 0.8, outlier.colour = COLORE_SECONDARIO, outlier.size = 1.5) +
   geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, colour = "grey50") +
