@@ -374,7 +374,7 @@ kable(distribuzione_fasce, caption = "Distribuzione per Fascia d'Età") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
-```{r grafico-fasce-eta, fig.height=6, fig.width=6}
+```{r grafico-fasce-eta, fig.height=4, fig.width=6}
 media_eta <- dataset %>%
   group_by(fascia_eta) %>%
   summarise(
@@ -411,7 +411,7 @@ ggplot(media_eta, aes(x = fascia_eta, y = media, fill = fascia_eta)) +
 
 Il boxplot integra il grafico delle medie mostrando la distribuzione completa: è utile per rilevare se le differenze tra fasce sono dovute a variazioni sistematiche o a singoli valori estremi — un'informazione cruciale per decidere se personalizzare la gamma di prodotti per segmento.
 
-```{r boxplot-eta, fig.height=6, fig.width=6}
+```{r boxplot-eta, fig.height=4, fig.width=6}
 ggplot(dataset, aes(x = fascia_eta, y = valutazione, fill = fascia_eta)) +
   geom_boxplot(alpha = 0.8, outlier.colour = COLORE_SECONDARIO, outlier.size = 1.5) +
   geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, colour = "grey50") +
@@ -945,16 +945,19 @@ profilo_rec <- recensioni_full %>%
     n_recensioni      = n(),
     .groups           = "drop"
   ) %>%
-  mutate(
-    cluster_label = case_when(
-      cluster_km == 1 ~ "Giovani — Valutazione media",
-      cluster_km == 2 ~ "Adulti — Alta valutazione",
-      cluster_km == 3 ~ "Adulti — Bassa valutazione",
-      TRUE            ~ as.character(cluster_km)
-    ))
+  arrange(valutazione_media) %>%          # ordina per la metrica scelta
+  mutate(rank = row_number()) %>%         # posizione 1..K basata sull'ordinamento
+  mutate(cluster_label = case_when(
+    rank == 1 ~ "Adulti — Bassa valutazione",
+    rank == 2 ~ "Giovani — Valutazione media",
+    rank == 3 ~ "Adulti — Alta valutazione",
+    TRUE      ~ paste0("Cluster ", rank)
+  )) %>%
+  select(-rank)
 
 kable(profilo_rec, caption = "Profilo dei Cluster di Consumatori") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
 ```
 
 ---
@@ -967,31 +970,74 @@ Solo i vini e i consumatori con un cluster assegnato vengono inclusi nell'analis
 
 ```{r analisi-integrata, fig.height=6, fig.width=6}
 # assumo che recensioni_full abbia cluster_km e che vini_clean abbia cluster_label (o crea le etichette come mostrato prima)
+set.seed(123)
+
+# --- rindici e clustering (se non già creati) ---
+k_finale_rec <- k_ottimale_gap_rec
+km_rec <- kmeans(recensioni_quant_std, centers = k_finale_rec, nstart = 200)
+
+recensioni_full <- recensioni
+recensioni_full$cluster_km <- NA_character_
+recensioni_full$cluster_km[righe_valide_rec] <- as.character(km_rec$cluster)
+recensioni_full$cluster_km <- factor(recensioni_full$cluster_km)
+
+# --- profilo per stabilire etichette consumatore ordinate per valutazione_media ---
+profilo_rec <- recensioni_full %>%
+  filter(!is.na(cluster_km)) %>%
+  group_by(cluster_km) %>%
+  summarise(
+    eta_media         = round(mean(età, na.rm = TRUE), 1),
+    valutazione_media = mean(valutazione, na.rm = TRUE),
+    n_recensioni      = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(valutazione_media) %>%    # ordina in modo deterministico
+  mutate(rank_consumatore = row_number())
+
+# mappa numeri di cluster -> etichette coerenti
+label_map_consumatore <- profilo_rec %>%
+  mutate(cluster_label_consumatore = case_when(
+    rank_consumatore == 1 ~ "Adulti — Bassa valutazione",
+    rank_consumatore == 2 ~ "Giovani — Valutazione media",
+    rank_consumatore == 3 ~ "Adulti — Alta valutazione",
+    TRUE ~ paste0("Cluster ", rank_consumatore)
+  )) %>%
+  select(cluster_km, cluster_label_consumatore)
+
+# unisci etichette coerenti a recensioni_full
 recensioni_lab <- recensioni_full %>%
   filter(!is.na(cluster_km)) %>%
-  mutate(cluster_label_consumatore = case_when(
-    cluster_km == 1 ~ "Giovani — Valutazione media",
-    cluster_km == 2 ~ "Adulti • Alta valutazione",
-    cluster_km == 3 ~ "Adulti — Bassa valutazione",
-    TRUE ~ as.character(cluster_km)
-  )) %>%
+  left_join(label_map_consumatore, by = "cluster_km") %>%
   select(wine_id, cluster_consumatore = cluster_km, cluster_label_consumatore, valutazione)
+
+# --- per i cluster vino: costruisci etichette ordinate in modo deterministico ---
+profilo_vini <- vini_clean %>%
+  filter(!is.na(cluster)) %>%
+  group_by(cluster) %>%
+  summarise(
+    alc_media = mean(alcohol, na.rm = TRUE),      # esempio di metrica; sostituisci se serve
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(alc_media)) %>%   # ordina per la metrica scelta (es. alcohol)
+  mutate(rank_vino = row_number())
+
+label_map_vino <- profilo_vini %>%
+  mutate(cluster_label_vino = case_when(
+    rank_vino == 1 ~ "Corposi • Alto alcol",
+    rank_vino == 2 ~ "Ricchi • Aromatici",
+    rank_vino == 3 ~ "Leggeri • Bianchi",
+    TRUE ~ paste0("Cluster ", rank_vino)
+  )) %>%
+  select(cluster, cluster_label_vino)
 
 vini_lab <- vini_clean %>%
   filter(!is.na(cluster)) %>%
-  mutate(cluster_label_vino = case_when(
-    cluster == 1 ~ "Corposi • Alto alcol",
-    cluster == 2 ~ "Ricchi • Aromatici",
-    cluster == 3 ~ "Leggeri • Bianchi",
-    TRUE ~ as.character(cluster)
-  )) %>%
+  left_join(label_map_vino, by = "cluster") %>%
   select(wine_id, cluster_vino = cluster, cluster_label_vino)
 
-dataset_int <- inner_join(
-  recensioni_lab,
-  vini_lab,
-  by = "wine_id"
-)
+# --- costruzione heatmap ---
+dataset_int <- inner_join(recensioni_lab, vini_lab, by = "wine_id")
 
 heatmap_data <- dataset_int %>%
   group_by(cluster_label_consumatore, cluster_label_vino) %>%
@@ -1013,7 +1059,7 @@ ggplot(heatmap_data, aes(x = cluster_label_vino, y = cluster_label_consumatore, 
     fill     = "Val. Media"
   ) +
   tema_cantina +
-  theme(axis.text.x = element_text(angle = 0))  # migliora leggibilità
+  theme(axis.text.x = element_text(angle = 0))
 
 ```
 
