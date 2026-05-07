@@ -13,6 +13,9 @@ output:
     highlight: tango
 geometry: margin=2.5cm
 fontsize: 11pt
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r global-setup, include=FALSE}
@@ -59,29 +62,34 @@ tema_cantina <- theme_minimal(base_size = 12) +
   )
 ```
 
----
+------------------------------------------------------------------------
 
 # Introduzione e Contesto di Business
 
 Questa analisi supporta la strategia commerciale di una cantina focalizzata sulla **coltivazione biologica**, la **produzione etica** e il **valore sociale**.
 La viticoltura biologica si distingue da quella convenzionale per l'assenza di pesticidi di sintesi e per pratiche di conservazione del suolo che influenzano direttamente la composizione chimica del vino.
-Comprendere questi profili chimici — e come si traducono in preferenze di consumatori differenti — è il fondamento di una strategia di posizionamento autentica e sostenibile.
+Comprendere questi profili chimici,e come si traducono in preferenze di consumatori differenti, è il fondamento di una strategia di posizionamento autentica e sostenibile.
 
 L'analisi si articola in quattro fasi principali:
 
-1. **Qualità dei Dati e Preprocessing**: pulizia robusta e rilevazione di anomalie.
-2. **EDA Avanzata**: esplorazione delle correlazioni tra chimica del vino e preferenze demografiche.
-3. **Clustering**: segmentazione di vini e consumatori per profili omogenei.
-4. **Export per Dashboard**: produzione di file strutturati pronti per Power BI / Tableau.
+1.  **Qualità dei Dati e Preprocessing**: pulizia robusta e rilevazione di anomalie.
 
----
+2.  **EDA Avanzata**: esplorazione delle correlazioni tra chimica del vino e preferenze demografiche.
+
+3.  **Clustering**: segmentazione di vini e consumatori per profili omogenei.
+
+4.  **Export per Dashboard**: produzione di file strutturati pronti per Power BI / Tableau.
+
+    \newpage
+
+------------------------------------------------------------------------
 
 # Importazione e Qualità dei Dati
 
 ## Caricamento dei Dataset
 
-Il primo passo di qualsiasi pipeline professionale è verificare l'integrità dei dati prima di qualsiasi trasformazione.
-Per una cantina biologica, dove ogni lotto ha caratteristiche chimiche uniche legate alla stagione e al terroir, la presenza di duplicati o record orfani comprometterebbe la qualità degli insight estratti.
+Il primo passo di qualsiasi pipeline è verificare l'integrità dei dati prima di qualsiasi trasformazione.
+Per una cantina biologica, dove ogni lotto ha caratteristiche chimiche uniche legate alla stagione e al territorio, la presenza di duplicati o record orfani comprometterebbe la qualità degli insight estratti.
 
 ```{r caricamento-dati}
 vini       <- read.csv("vini.csv")
@@ -101,33 +109,10 @@ if ("nazionalità" %in% colnames(recensioni) && "nazionalita" %in% colnames(rece
 
 ## Report di Qualità dei Dati
 
-Rilevare in modo esplicito i problemi di qualità — duplicati, chiavi orfane, valori mancanti — consente di documentare il livello di affidabilità dell'analisi e di comunicarlo in modo trasparente agli stakeholder aziendali.
+Rilevare in modo esplicito i problemi di qualità, duplicati, chiavi orfane, valori mancanti, consente di documentare il livello di affidabilità dell'analisi e di comunicarlo in modo trasparente agli stakeholder aziendali.
 
-```{r qualita-dati}
-cat("=== REPORT QUALITÀ DATI ===\n\n")
-
-cat("--- Dataset VINI ---\n")
-cat("Righe totali:            ", nrow(vini), "\n")
-cat("Colonne totali:          ", ncol(vini), "\n")
-cat("Duplicati wine_id:       ", sum(duplicated(vini$wine_id)), "\n")
-cat("NA in wine_id:           ", sum(is.na(vini$wine_id)), "\n")
-cat("Valori mancanti totali:  ", sum(is.na(vini)), "\n\n")
-
-cat("--- Dataset RECENSIONI ---\n")
-cat("Righe totali:            ", nrow(recensioni), "\n")
-cat("Colonne totali:          ", ncol(recensioni), "\n")
-cat("NA in wine_id:           ", sum(is.na(recensioni$wine_id)), "\n")
-cat("Valori mancanti totali:  ", sum(is.na(recensioni)), "\n\n")
-
-cat("--- Integrità Referenziale ---\n")
-cat("Vini senza recensioni:   ", nrow(anti_join(vini, recensioni, by = "wine_id")), "\n")
-cat("Recensioni senza vino:   ", nrow(anti_join(recensioni, vini, by = "wine_id")), "\n")
-```
-
-## Panoramica Statistica dei Dataset
-
-La funzione `skim_without_charts` produce un riassunto statistico compatto per ogni variabile: range, quantili, tasso di completezza e deviazione standard.
-Questo colpo d'occhio permette di individuare immediatamente le variabili con alta percentuale di NA o distribuzioni anomale prima di procedere con qualsiasi trasformazione.
+Inoltre, per comprendere meglio la distribuzione dei dati è necessario un riassunto statistico compatto per ogni variabile: range, quantili, tasso di completezza e deviazione standard.
+Questo permette di individuare immediatamente le variabili con distribuzioni anomale o con valori scorretti prima di procedere con qualsiasi trasformazione.
 
 ```{r skim-vini}
 cat("=== SINTESI STATISTICA: VINI ===\n")
@@ -139,14 +124,22 @@ cat("=== SINTESI STATISTICA: RECENSIONI ===\n")
 skim_without_charts(recensioni)
 ```
 
----
+Il report conferma un dataset in ottime condizioni: nessun duplicato, nessun valore mancante e perfetta coerenza referenziale tra i due file.
+Il catalogo vini comprende **20 etichette** con 14 variabili ciascuna, mentre il dataset di recensioni conta **2.000 osservazioni** su 5 colonne.
+L'integrità referenziale è completa: ogni vino ha almeno una recensione e ogni recensione è collegata a un vino esistente nel catalogo.
+Questa pulizia di partenza garantisce che tutti i 20 vini partecipino alle analisi successive senza introdurre distorsioni da dati mancanti o disallineamenti di chiave.
+
+Per i vini, le variabili chimiche mostrano distribuzioni plausibili: l'alcol medio è 10.66% (range 8.5–13.55%), il pH medio è 3.33 e il residuo zuccherino medio di 4.34 g/L è coerente con vini secchi da agricoltura biologica.
+Il dataset di recensioni presenta un'età media dei recensori di 46 anni (range 20–69), con una predominanza maschile (M: 58.7%, F: 41.3%) e una maggioranza di nazionalità italiana (42.6%), seguita da americana (25.2%), francese (17.5%) e altre (14.8%).
+La valutazione media complessiva è 6.61 su una scala da 3 a 9, con una deviazione standard di 1.02 che segnala una dispersione moderata e ben utilizzabile per l'analisi segmentata.
+
+------------------------------------------------------------------------
 
 # Preprocessing e Gestione delle Anomalie
 
 ## Rilevazione e Trattamento degli Outlier
 
 Gli outlier nei parametri chimici del vino (es. acidità volatile molto elevata, residuo zuccherino anomalo) non sono necessariamente errori: possono riflettere vini di nicchia con profili estremi.
-La strategia di Winsorizzazione scelta — che porta i valori oltre l'1° e il 99° percentile al limite stesso — preserva questi casi senza distorcere le analisi di clustering, che sono sensibili ai valori estremi su feature non scalate.
 
 ```{r winsorizzazione}
 COLONNE_CHIMICHE <- c(
@@ -171,10 +164,13 @@ for (col in COLONNE_CHIMICHE) {
 }
 ```
 
+Il trattamento ha interessato, in modo simmetrico, quasi tutte le variabili chimiche (1 outlier basso e 1 alto per la maggior parte di esse).
+Solo `chlorides` e `density` risultano prive di valori estremi da correggere, il che indica distribuzioni già ben concentrate intorno alla mediana.
+
 ## Imputazione dei Valori Mancanti
 
 Per le variabili chimiche continue si utilizza l'imputazione con la mediana anziché la media: la mediana è robusta rispetto agli outlier residui e non altera la distribuzione complessiva.
-Questa scelta è particolarmente indicata per dataset con code asimmetriche, comuni nelle misurazioni enochimiche, e garantisce che il clustering successivo non sia distorto da valori imputati non rappresentativi.
+Questa scelta è particolarmente indicata per dataset con code asimmetrich e garantisce che il clustering successivo non sia distorto da valori imputati non rappresentativi.
 
 ```{r imputazione-na}
 conta_na_prima <- sum(is.na(vini_clean[, COLONNE_CHIMICHE]))
@@ -191,7 +187,10 @@ cat(sprintf("NA prima dell'imputazione: %d\nNA dopo l'imputazione:     %d\n",
             conta_na_prima, conta_na_dopo))
 ```
 
----
+Come atteso dalla fase di controllo qualità, il dataset non presentava valori mancanti nelle variabili chimiche: il conteggio rimane 0 sia prima che dopo l'imputazione.
+Questo passo è incluso come salvaguardia procedurale, indispensabile in qualsiasi pipeline di produzione per gestire correttamente futuri aggiornamenti del catalogo che potrebbero contenere misurazioni parziali.
+
+------------------------------------------------------------------------
 
 # Analisi Esplorativa dei Dati (EDA)
 
@@ -219,6 +218,11 @@ ggplot(vini_long, aes(x = valore, fill = type)) +
   tema_cantina
 ```
 
+L'istogramma mostra chiaramente le differenze di composizione chimica tra vini rossi (R, bordeaux) e bianchi (W, ocra).
+I vini bianchi presentano valori di `free.sulfur.dioxide` e `total.sulfur.dioxide` sensibilmente più alti rispetto ai rossi — coerente con la pratica enologica che richiede maggiori dosi protettive nei bianchi — mentre i rossi mostrano `fixed.acidity` e `volatile.acidity` più elevate.
+Variabili come `alcohol` e `pH` presentano distribuzioni simili tra le due tipologie, confermando che il processo biologico influisce principalmente sulla gestione dei solfiti e dell'acidità, non sul tenore alcolico di base.
+Questo pattern è un argomento comunicativo forte per la cantina: i bianchi biologici garantiscono protezione con solfiti ancora moderati, i rossi puntano su acidità naturale come fattore di conservazione.
+
 ## Matrice di Correlazione tra Variabili Chimiche
 
 La matrice di correlazione è uno strumento diagnostico fondamentale prima del clustering: variabili altamente correlate (come `free.sulfur.dioxide` e `total.sulfur.dioxide`) portano informazione ridondante e possono distorcere la distanza euclidea usata da k-means.
@@ -243,9 +247,14 @@ corrplot(
 )
 ```
 
+La matrice di correlazione rivela tre pattern rilevanti per le scelte di modellazione successive.
+La coppia `free.sulfur.dioxide` / `total.sulfur.dioxide` mostra la correlazione positiva più alta (0.58), confermando che le due misure catturano in parte la stessa dimensione chimica e potrebbero essere aggregate in una variabile sintetica per ridurre la ridondanza nel clustering.
+La coppia `fixed.acidity` / `residual.sugar` presenta anch'essa una correlazione positiva rilevante (0.68), mentre `alcohol` e `density` mostrano la correlazione negativa più marcata (−0.23), coerente con il principio fisico per cui l'alcol abbassa la densità del liquido.
+Nessuna coppia supera la soglia critica di 0.80 che richiederebbe un trattamento obbligatorio prima della regressione, ma le correlazioni moderate identificate giustificano l'analisi VIF condotta nella sezione dedicata alla regressione lineare.
+
 ## Scatter Plot Matrix
 
-La visualizzazione a matrice di dispersione — con rette di regressione lineare sovrapposte — rivela relazioni non lineari che la sola correlazione di Pearson non cattura, come l'eventuale effetto a U dell'acidità sulla valutazione.
+La visualizzazione a matrice di dispersione, con rette di regressione lineare sovrapposte, rivela relazioni non lineari che la sola correlazione di Pearson non cattura, come l'eventuale effetto a U dell'acidità sulla valutazione.
 Costituisce un complemento visivo alla matrice di correlazione numerica e aiuta a individuare cluster naturali già nella fase esplorativa.
 
 ```{r scatter-matrix, fig.height=6, fig.width=6}
@@ -262,15 +271,20 @@ pairs.panels(
 )
 ```
 
----
+La scatter matrix conferma ed arricchisce quanto emerso dalla matrice di correlazione.
+Nella diagonale, le distribuzioni univariate mostrano che la maggior parte delle variabili presenta una forma unimodale, con `total.sulfur.dioxide` e `free.sulfur.dioxide` leggermente asimmetriche verso destr, fenomeno atteso in vini biologici dove l'uso di SO₂ è controllato ma non assente.
+Nei pannelli off-diagonali, la retta di regressione tra `fixed.acidity` e `residual.sugar` ha pendenza positiva e visibile, rafforzando la correlazione numerica già rilevata (0.68).
+Il pannello `alcohol` vs `density` mostra la relazione inversa più netta visivamente, confermando che questo legame fisico è strutturalmente presente anche in un catalogo di soli 20 vini.
+La scatter matrix non evidenzia cluster visivamente separati nelle variabili bidimensionali, suggerendo che la segmentazione richiederà l'intero spazio multidimensionale, obiettivo del clustering formale nelle sezioni successive.
+
+------------------------------------------------------------------------
 
 # Costruzione del Dataset Unificato
 
 ## Join tra Vini e Recensioni
 
-Il join interno (inner join) garantisce che solo i vini con almeno una recensione — e solo le recensioni associate a un vino nel catalogo — entrino nelle analisi successive.
+Il join interno (inner join) garantisce che solo i vini con almeno una recensione, e solo le recensioni associate a un vino nel catalogo, entrino nelle analisi successive.
 Questo preserva la coerenza referenziale ed è la scelta più conservativa per un dataset destinato a insight di business.
-Si crea inoltre l'alias `eta` per la variabile `età`, necessario per compatibilità con le formule R che non gestiscono caratteri accentati.
 
 ```{r join-dataset}
 dataset <- inner_join(recensioni, vini_clean, by = "wine_id")
@@ -284,6 +298,10 @@ dataset$type <- as.factor(dataset$type)
 
 cat("Dimensione dataset unificato:", nrow(dataset), "righe x", ncol(dataset), "colonne\n")
 ```
+
+Il dataset unificato conta **2.000 righe** per **19 colonne**, confermando che tutte le recensioni hanno trovato la corrispondenza nel catalogo vini.
+Ogni riga rappresenta una singola recensione arricchita con le 11 caratteristiche chimiche del vino valutato e con le variabili demografiche del recensore (età, sesso, nazionalità).
+Questo formato long è la struttura ideale per le analisi di regressione, clustering e cross-segmentazione che seguono.
 
 ## Correlazioni nel Dataset Unificato
 
@@ -308,7 +326,12 @@ corrplot(
 )
 ```
 
----
+L'estensione della matrice di correlazione alle variabili demografiche e alla valutazione offre due indicazioni strategiche fondamentali.
+La variabile `eta` mostra correlazioni praticamente nulle con tutte le caratteristiche chimiche (tutte comprese tra −0.05 e 0.01), indicando che i consumatori di età diverse non tendono a bere vini con composizioni chimiche sistematicamente diverse: l'età non è un predittore della tipologia di vino consumata, ma potrebbe influenzare l'intensità del giudizio espresso.
+La variabile `valutazione` mostra le correlazioni più significative con `sulphates` (0.34), `alcohol` (0.36) e — in direzione negativa — con `volatile.acidity` (−0.15): i vini con più alcol e solfiti tendono a ricevere valutazioni leggermente più alte, mentre un'acidità volatile elevata (tipicamente associata a difetti fermentativi) penalizza il giudizio.
+Questi segnali, seppur moderati, forniscono indicazioni concrete per le decisioni di formulazione della cantina biologica.
+
+------------------------------------------------------------------------
 
 # Analisi delle Valutazioni
 
@@ -352,6 +375,11 @@ ggplot(media_vini, aes(
   tema_cantina
 ```
 
+Il grafico a barre orizzontali mostra una gerarchia chiara: il **Nerello Mascalese Etna** si posiziona in testa con un punteggio medio di 7.58, seguito dal **Barolo DOCG** (7.37) e dalla **Ribolla Gialla** (7.30).
+La coda della classifica è occupata dal **Greco di Tufo** (5.74) e dal **Montepulciano d'Abruzzo** (5.81), con uno scarto di quasi 2 punti rispetto al podio — una differenza percettivamente significativa per i consumatori.
+Degno di nota è che i tre vini in testa appartengono a denominazioni geograficamente distanti (Sicilia, Piemonte, Friuli–Venezia Giulia), suggerendo che la preferenza non è guidata dall'origine regionale bensì da caratteristiche intrinseche del profilo aromatico e tannico.
+Questa classifica costituisce la base per le decisioni di pricing premium e per l'allocazione delle risorse comunicative del brand.
+
 ## Segmentazione per Fascia d'Età
 
 La fascia d'età è una variabile di segmentazione classica nel marketing del vino.
@@ -373,6 +401,11 @@ distribuzione_fasce$Percentuale <- round(100 * distribuzione_fasce$N / sum(distr
 kable(distribuzione_fasce, caption = "Distribuzione per Fascia d'Età") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
+
+La tabella mostra una distribuzione fortemente sbilanciata verso la fascia **Maturo** (50–64 anni), che da sola rappresenta il 50.7% del campione con 1.014 recensioni.
+Seguono i **Giovani** (26–35 anni, 21.4%) e i **Ragazzi** (18–25 anni, 14.7%), mentre **Adulti** (36–50 anni, 7.6%) e **Anziani** (65+, 5.7%) risultano nettamente sottorappresentati.
+Questa distribuzione demografica ha implicazioni dirette per l'analisi statistica successiva: i test comparativi tra fasce dovranno tenere conto dello squilibrio campionario, e le conclusioni sulle fasce minori vanno interpretate con maggiore cautela data la minore potenza statistica.
+Dal punto di vista di business, il presidio dominante della fascia Maturo indica il target prioritario a cui orientare la comunicazione principale del brand.
 
 ```{r grafico-fasce-eta, fig.height=4, fig.width=6}
 media_eta <- dataset %>%
@@ -407,6 +440,11 @@ ggplot(media_eta, aes(x = fascia_eta, y = media, fill = fascia_eta)) +
   theme(legend.position = "none")
 ```
 
+Il grafico a barre con barre d'errore mostra che le valutazioni medie per fascia d'età sono notevolmente simili tra loro, tutte comprese in un range ristretto tra 6.54 (Maturo) e 6.70 (Ragazzo e Adulto).
+Le barre d'errore — che rappresentano ±1 errore standard della media — si sovrappongono abbondantemente per tutte le fasce, indicando già visivamente che le differenze osservate potrebbero non raggiungere la significatività statistica.
+La fascia **Maturo** presenta la valutazione media lievemente più bassa (6.54), mentre **Ragazzo** e **Adulto** condividono il punteggio più alto (6.70): un pattern controintuitivo che verrà esaminato con rigore statistico nella sezione dei test.
+Questo grafico è utile come punto di partenza comunicativo per gli stakeholder, ma richiede la conferma statistica formale prima di tradursi in scelte di prodotto.
+
 ## Boxplot delle Valutazioni per Fascia d'Età
 
 Il boxplot integra il grafico delle medie mostrando la distribuzione completa: è utile per rilevare se le differenze tra fasce sono dovute a variazioni sistematiche o a singoli valori estremi — un'informazione cruciale per decidere se personalizzare la gamma di prodotti per segmento.
@@ -426,7 +464,12 @@ ggplot(dataset, aes(x = fascia_eta, y = valutazione, fill = fascia_eta)) +
   theme(legend.position = "none")
 ```
 
----
+I boxplot mostrano che tutte le fasce d'età presentano una distribuzione delle valutazioni sostanzialmente simile, con mediane intorno a 6.5–7 e interquartili compresi tra circa 6 e 7.5.
+La forma delle distribuzioni è leggermente asimmetrica verso il basso per tutte le fasce, con code inferiori più allungate rispetto a quelle superiori — indicando che le valutazioni molto basse sono meno frequenti ma più disperse rispetto a quelle alte.
+I punti outlier (in bordeaux) sono presenti soprattutto nella fascia **Maturo**, che è anche la più numerosa: questo è un effetto dimensionale atteso e non indica necessariamente comportamenti anomali.
+La sostanziale sovrapposizione dei boxplot tra le fasce conferma visivamente l'ipotesi che le preferenze in termini di qualità percepita non si differenziano in modo netto per età, preparando il terreno per la verifica statistica formale che segue.
+
+------------------------------------------------------------------------
 
 # Test Statistici sulle Fasce d'Età
 
@@ -456,17 +499,17 @@ print(kruskal.test(valutazione ~ fascia_eta, data = dataset))
 ```
 
 I risultati diagnostici mostrano che le assunzioni fondamentali dell'ANOVA standard non sono rispettate dai dati analizzati.
-Il test di Shapiro-Wilk sui residui (p-value < 0.001) e il test di Bartlett sulle varianze (p-value = 0.001) respingono fermamente le ipotesi di normalità e di varianze omogenee.
+Il test di Shapiro-Wilk sui residui (p-value \< 0.001) e il test di Bartlett sulle varianze (p-value = 0.001) respingono fermamente le ipotesi di normalità e di varianze omogenee.
 A causa di queste violazioni, il risultato marginale dell'ANOVA classica (p-value = 0.0639) non può essere considerato statisticamente affidabile.
 Affidandosi al test non parametrico di Kruskal-Wallis, idoneo per distribuzioni non normali, emerge una differenza statisticamente significativa tra le fasce d'età (p-value = 0.0277).
 Questa evidenza statistica convalida l'ipotesi che l'apprezzamento del vino vari significativamente in base all'età del recensore, fornendo una base solida per la differenziazione delle strategie di marketing.
 
-##  ANOVA per nazionalità
+## ANOVA per nazionalità
 
 L'esecuzione di test statistici multipli sulla variabile geografica serve a verificare se le differenze di valutazione tra le varie nazionalità sono statisticamente significative.
-ìProcedere con questo test permette di accertare l'affidabilità dell'ANOVA standard, controllando preventivamente le assunzioni matematiche di normalità e omoschedasticità.
+Procedere con questo test permette di accertare l'affidabilità dell'ANOVA standard, controllando preventivamente le assunzioni matematiche di normalità e omoschedasticità.
 
-```{r}
+```{r anova-nazionalita}
 mod_aov_naz <- aov(valutazione ~ nazionalita, data = dataset)
 
 cat("=== ANOVA STANDARD (NAZIONALITÀ) ===\n")
@@ -520,14 +563,18 @@ plot(mod_aov, which = 2, main = "Q-Q Plot dei Residui")
 par(mfrow = c(1, 1))
 ```
 
----
+Il pannello sinistro (Residui vs Valori Adattati) mostra che i residui si distribuiscono in bande verticali distinte, corrispondenti ai cinque valori adattati discreti del modello (uno per ciascuna fascia d'età): questo pattern a "colonne" è strutturale quando la variabile dipendente assume solo valori interi o semi-interi, come la scala di valutazione utilizzata.
+La linea rossa di tendenza è sostanzialmente piatta, confermando l'assenza di pattern sistematici nella varianza dei residui che comprometterebbero le inferenze.
+Il pannello destro (Q-Q plot) mostra code che si discostano dalla retta teorica sia nella parte inferiore che in quella superiore, confermando la deviazione dalla normalità già evidenziata dallo Shapiro-Wilk.
+Questa diagnostica visiva rinforza la decisione di affidarsi al Kruskal-Wallis come test principale per le conclusioni strategiche.
+
+------------------------------------------------------------------------
 
 # Regressione Lineare e Multicollinearità
 
 ## Modello Completo
 
-La regressione lineare con tutte le variabili chimiche e demografiche come predittori permette di rispondere a una domanda chiave: *quali caratteristiche del vino e del consumatore spiegano la valutazione?*
-Per una cantina biologica, scoprire che un basso livello di solfiti o un'acidità bilanciata predicono valutazioni più alte sarebbe una conferma scientifica del valore del metodo biologico.
+La regressione lineare con tutte le variabili chimiche e demografiche come predittori permette di rispondere a una domanda chiave: *quali caratteristiche del vino e del consumatore spiegano la valutazione?* Per una cantina biologica, scoprire che un basso livello di solfiti o un'acidità bilanciata predicono valutazioni più alte sarebbe una conferma scientifica del valore del metodo biologico.
 
 ```{r regressione}
 dataset_reg <- dataset[, intersect(
@@ -539,6 +586,14 @@ dataset_reg <- dataset_reg[complete.cases(dataset_reg), ]
 lm_completo <- lm(valutazione ~ ., data = dataset_reg)
 print(summary(lm_completo))
 ```
+
+Il modello di regressione lineare include 17 predittori e spiega il **25.4%** della varianza nelle valutazioni (R² aggiustato = 0.248), con una significatività globale altamente robusta (F-statistic: 39.75, p \< 2.2e-16).
+I predittori con impatto più forte e statisticamente significativo sono: `alcohol` (β = +0.204, p \< 0.001): ogni punto percentuale aggiuntivo di alcol aumenta la valutazione attesa di 0.2 punti — un segnale che i consumatori premiamo vini strutturati.
+`sulphates` (β = +2.084, p \< 0.001): i solfiti, usati con moderazione nel biologico, hanno un impatto positivo sulla qualità percepita, probabilmente come proxy della cura produttiva.
+`volatile.acidity` (β = −1.453, p \< 0.001): l'acidità volatile elevata penalizza fortemente la valutazione — conferma empirica che i difetti fermentativi sono percepiti negativamente.
+`free.sulfur.dioxide` (β = +0.010, p = 0.002): l'anidride solforosa libera ha un effetto positivo piccolo ma significativo.
+Sul fronte demografico, i recensori francesi esprimono valutazioni significativamente più basse rispetto alla categoria di riferimento (β = −0.220, p = 0.002) e l'età ha un effetto negativo minimo (β = −0.003, p = 0.037): i consumatori più anziani tendono a esprimere giudizi leggermente più severi.
+Il sesso e la tipologia di vino (rosso/bianco) non risultano predittori significativi una volta controllate le caratteristiche chimiche.
 
 ## Verifica della Multicollinearità (VIF)
 
@@ -570,10 +625,15 @@ if (!is.null(vif_vals)) {
   cat("\nPredittori con VIF > 5:  ", paste(high5,  collapse = ", "), "\n")
   cat("Predittori con VIF > 10: ", paste(high10, collapse = ", "), "\n")
 }
-
 ```
 
----
+L'analisi del GVIF aggiustato conferma un profilo di multicollinearità complessivamente contenuto.
+Nessun predittore supera la soglia critica di VIF \> 10 che richiederebbe un intervento obbligatorio.
+I valori più elevati appartengono a `total.sulfur.dioxide` (GVIF_adj ≈ 2.45) e `type` (GVIF_adj ≈ 2.52), entrambi superiori a 2 ma abbondantemente sotto la soglia di allerta di 5.
+Questa situazione è coerente con quanto già osservato nella matrice di correlazione: le due variabili sui solfiti (libero e totale) condividono parte dell'informazione, ma non a un livello tale da compromettere la stabilità delle stime.
+Il modello di regressione può quindi essere interpretato con fiducia, senza necessità di eliminare o aggregare predittori per ragioni di multicollinearità.
+
+------------------------------------------------------------------------
 
 # Graduatorie dei Vini per Fascia d'Età
 
@@ -609,7 +669,13 @@ for (fascia in fasce) {
 }
 ```
 
----
+Le graduatorie segmentate rivelano pattern di preferenza coerenti e alcune specificità per fascia degne di attenzione strategica.
+Il **Nerello Mascalese Etna** e il **Barolo DOCG** emergono come vini di eccellenza trasversali: compaiono nelle prime posizioni in tutte le fasce d'età, suggerendo che il loro profilo organolettico ha un appeal universale che la cantina dovrebbe capitalizzare nella comunicazione principale.
+La **Ribolla Gialla** conferma la sua forza anche tra i consumatori più giovani (2° posto nella fascia Ragazzo), mentre il **Brunello di Montalcino** scala le posizioni con l'aumentare dell'età del recensore — un pattern tipico dei vini con complessità tannica apprezzata dai palati più esperti.
+La fascia **Anziano** presenta la graduatoria più volatile (campione di 114 recensioni), con il **Cannonau di Sardegna** in cima con un punteggio medio di 8.5 su soli 3 recensori: questo dato va interpretato con cautela e richiede l'acquisizione di ulteriori osservazioni prima di tradursi in decisioni di posizionamento.
+Queste graduatorie sono direttamente utilizzabili come input per la pianificazione delle degustazioni mirate e per la costruzione di bundle di prodotti personalizzati per fascia demografica.
+
+------------------------------------------------------------------------
 
 # Clustering dei Vini
 
@@ -633,6 +699,9 @@ cat("Righe usate per il clustering vini:", nrow(vini_quant_std), "\n")
 cat("Feature utilizzate:", ncol(vini_quant_std), "\n")
 cat("Variabili:", paste(COLONNE_CHIMICHE, collapse = ", "), "\n")
 ```
+
+Tutti i 20 vini del catalogo sono disponibili per il clustering, utilizzando l'intero set di 11 caratteristiche chimiche standardizzate.
+La standardizzazione porta ogni variabile a media 0 e deviazione standard 1, garantendo che l'alcol (scala 8–14%), i solfiti (scala 10–300 mg/L) e il pH (scala 3.1–3.7) contribuiscano equamente al calcolo delle distanze euclidee tra i profili chimici.
 
 ## Selezione del Numero Ottimale di Cluster (k) per i vini
 
@@ -677,12 +746,14 @@ ggplot(metriche_long, aes(x = k, y = valore, colour = metrica)) +
   tema_cantina
 ```
 
+Il grafico a tre pannelli mostra l'andamento delle metriche al variare di k da 2 a 10.
+Il pannello **Pseudo-F** presenta il picco marcato in corrispondenza di k = 2, con una caduta ripida fino a k = 8 e una leggera risalita successiva: questo suggerisce che la separazione inter-cluster è massima per una bipartizione semplice, ma il guadagno si riduce rapidamente aggiungendo cluster.
+Il pannello **R²** mostra la curva di saturazione classica dell'elbow method: il guadagno marginale è maggiore da k = 2 a k = 3 (da 0.27 a 0.38), si riduce progressivamente e tende ad appiattirsi oltre k = 6, indicando k = 3 come punto di equilibrio tra complessità e potere esplicativo.
+Il pannello **Silhouette** presenta un andamento irregolare tipico dei dataset piccoli, con un picco in k = 2 (0.191) e valori generalmente bassi che suggeriscono sovrapposizioni nei profili chimici — atteso con soli 20 osservazioni e 11 dimensioni.
+I tre criteri non convergono su un unico valore ottimale: la Gap Statistic fornisce il verdetto formale.
+
 La Gap Statistic fornisce un riferimento formale basato su simulazione Monte Carlo: confronta la varianza intra-cluster osservata con quella attesa sotto un'ipotesi nulla di distribuzione uniforme dei dati.
 È particolarmente utile quando i tre criteri empirici non convergono sullo stesso valore di k.
-
-
-
-
 
 ```{r gap-vini}
 gap_vini <- clusGap(vini_quant_std, FUN = kmeans, K.max = 5, B = 50, nstart = 10)
@@ -697,14 +768,14 @@ print(gap_vini$Tab)
 cat("\nIl numero ottimale di cluster (k) calcolato tramite Gap Statistic è:", k_ottimale_gap_vini, "\n")
 ```
 
+La Gap Statistic indica **k = 3** come numero ottimale di cluster per i vini, applicando la regola di Tibshirani che seleziona il k più piccolo la cui Gap è entro 1 SE dalla Gap del k successivo.
+Questo risultato è coerente con il gomito visivo nell'R² e rappresenta un numero di famiglie interpretabile dal punto di vista enologico: tre linee di prodotto distinte offrono sufficiente differenziazione senza frammentare eccessivamente il catalogo di 20 etichette.
+Il valore k = 3 viene adottato come scelta definitiva per il clustering gerarchico che segue.
 
 ## Clustering Gerarchico
 
-Con soli 20 vini e 11 variabili chimiche, il rapporto osservazioni/variabili è troppo basso per
-garantire stabilità al k-means standard.
-Si adottano due accorgimenti: una riduzione dimensionale via PCA prima del clustering (per eliminare
-il rumore nelle distanze), e il clustering gerarchico come risultato primario — più affidabile con
-dataset piccoli perché non richiede di specificare k a priori e produce gruppi verificabili visivamente.
+Con soli 20 vini e 11 variabili chimiche, il rapporto osservazioni/variabili è troppo basso per garantire stabilità al k-means standard.
+Si adottano due accorgimenti: una riduzione dimensionale via PCA prima del clustering (per eliminare il rumore nelle distanze), e il clustering gerarchico come risultato primario — più affidabile con dataset piccoli perché non richiede di specificare k a priori e produce gruppi verificabili visivamente.
 
 ```{r clustering-vini-adattato, fig.height=6, fig.width=6}
 pca_pre <- prcomp(vini_quant_std)
@@ -732,6 +803,11 @@ fviz_dend(
 )
 ```
 
+La PCA ha concentrato l'80% della varianza nelle prime **5 componenti principali**, riducendo lo spazio da 11 a 5 dimensioni e attenuando il rumore nelle distanze euclidee inter-vino.
+Il dendrogramma risultante mostra una struttura gerarchica chiara, con due macro-rami principali che si separano a una distanza di Ward elevata (circa 10): questo indica una distinzione netta tra due grandi famiglie chimiche nel catalogo.
+All'interno del ramo destro (vini 4, 11 in bordeaux + 8 vini in arancione) si distingue un ulteriore sottogruppo coeso a bassa distanza interna, mentre i due vini isolati in verde (posizioni 13 e 17) formano un micro-cluster autonomo per la loro composizione chimica peculiare.
+Il taglio a k = 3 (come indicato dalla Gap Statistic) produce i cluster descritti nella sezione successiva.
+
 ```{r profilo-cluster-gerarchico}
 k_finale_vini      <- k_ottimale_gap_vini
 cluster_gerarchico <- cutree(hclust_vini_final, k = k_finale_vini)
@@ -758,7 +834,13 @@ for (i in seq_len(nrow(profilo_vini))) {
 }
 ```
 
-##  Heatmap cluster vini
+Il taglio del dendrogramma a k = 3 produce tre cluster di dimensioni asimmetriche: il **Cluster 1** è il più numeroso (10 vini) e raggruppa etichette prevalentemente rosse e strutturate come il Nero d'Avola, il Brunello e il Cannonau; il **Cluster 2** conta 8 vini e include denominazioni come l'Amarone, la Barbera e il Sagrantino; il **Cluster 3** è il più ristretto (2 vini) e isola il Vermentino di Gallura e il Soave Classico — entrambi vini bianchi leggeri con profilo aromatico distinto dagli altri.
+Questa distribuzione conferma che il catalogo biologico è dominato da vini rossi strutturati (18 su 20), con soli due bianchi sufficientemente diversi chimicamente da formare una famiglia autonoma.
+
+## Heatmap Cluster Vini
+
+La heatmap dei profili chimici normalizzati permette di leggere in modo immediato i tratti distintivi di ciascun cluster e di costruire la narrativa di posizionamento per ciascuna linea di prodotto.
+
 ```{r heatmap-cluster-vini, fig.height=6, fig.width=6}
 profilo_vini <- profilo_vini %>%
   mutate(
@@ -795,15 +877,19 @@ ggplot(profilo_long, aes(x = cluster_label, y = variabile, fill = media_norm)) +
   tema_cantina
 ```
 
+La heatmap, con valori normalizzati per riga (Z-Score), rende immediatamente leggibili le peculiarità chimiche di ciascun cluster.
+Il **Cluster "Corposi • Alto alcol"** si distingue per il valore Z più alto su `chlorides` (+1.15) e `sulphates` (+1.04), con `alcohol` elevato (+0.89) e `pH` basso (−1.15): un profilo tipico di vini rossi concentrati, con una struttura minerale importante e buona longevità.
+Il **Cluster "Leggeri • Bianchi"** mostra i valori Z più alti su `free.sulfur.dioxide` (+1.15) e `total.sulfur.dioxide` (+0.96), con `density` elevata (+0.67) e `alcohol` basso (−1.08): coerente con il profilo dei vini bianchi aromatici e freschi che richiedono maggiore protezione solforosa.
+Il **Cluster "Ricchi • Aromatici"** occupa una posizione intermedia, con `residual.sugar` leggermente più alto (+0.67 nella variante normalizzata) e `density` bassa (−1.15): un cluster di vini rossi con corpo medio e note fruttate più pronunciate.
+Questi tre profili si traducono in tre posizionamenti di mercato distinti: vini da invecchiamento per i Corposi, vini da aperitivo e abbinamento leggero per i Bianchi, vini da pasto versatile per gli Aromatici.
 
 ## Profilazione dei Cluster di Vini
 
 La profilazione assegna un'identità interpretabile a ciascun cluster, traducendo le medie delle variabili chimiche in caratteristiche enologiche comprensibili.
-Questo è il passaggio che trasforma un risultato algoritmico in un insight di business comunicabile — ad esempio: "Cluster 1: Corposi ad altp contenuto alcolico e basso residuo zuccherino".
-La heatmap normalizzata (z-score per riga) permette di confrontare visivamente i profili dei cluster anche per variabili con scale molto diverse.
+Questo è il passaggio che trasforma un risultato algoritmico in un insight di business comunicabile — ad esempio: "Cluster 1: Corposi ad alto contenuto alcolico e basso residuo zuccherino".
+La tabella seguente riporta i valori medi assoluti (non normalizzati) per ciascuna variabile chimica, utili per la comunicazione tecnica con i responsabili di cantina.
 
 ```{r profilo-vini-gerarchico, fig.height=6, fig.width=6}
-# Usa direttamente profilo_vini già calcolato dal clustering gerarchico
 profilo_stampa <- profilo_vini %>%
   select(-vini, -n_vini) %>%
   pivot_longer(
@@ -832,7 +918,13 @@ kable(
   column_spec(1, bold = TRUE, width = "2.5cm")
 ```
 
----
+La tabella di profilazione conferma le interpretazioni della heatmap con valori assoluti.
+Il cluster **"Corposi • Alto alcol"** ha il tenore alcolico medio più alto (11.18%), la `fixed.acidity` più elevata (9.46) e il `pH` più basso (3.27): un profilo che richiama la struttura dei grandi vini rossi meridionali.
+Il cluster **"Leggeri • Bianchi"** si distingue per i valori estremi di `free.sulfur.dioxide` (56.3 mg/L) e `total.sulfur.dioxide` (170.6 mg/L), con la `density` più bassa (0.990) e l'alcol intermedio (10.75%): il profilo tipico dei bianchi aromatici a bassa densità.
+Il cluster **"Ricchi • Aromatici"** si posiziona nel mezzo per la maggior parte delle variabili, con il `residual.sugar` leggermente superiore (4.62 g/L) e `free.sulfur.dioxide` intermedio (28.1 mg/L).
+Questi profili medi sono direttamente utilizzabili dal responsabile di cantina per calibrare i processi produttivi futuri in modo da rafforzare le identità chimiche di ciascuna famiglia.
+
+------------------------------------------------------------------------
 
 # Clustering dei Consumatori (Recensori)
 
@@ -862,6 +954,9 @@ cat("Feature originali:", length(COLONNE_CLUSTERING_REC),
     "→ dopo encoding:", ncol(recensioni_quant_std), "colonne\n")
 cat("Colonne generate:", paste(colnames(recensioni_quant_std), collapse = ", "), "\n")
 ```
+
+Tutti i 2.000 recensori sono disponibili per il clustering, con le due variabili principali `età` e `valutazione` come feature di segmentazione.
+La scelta di utilizzare queste due dimensioni permette di individuare segmenti definiti sia dall'anagrafica del consumatore sia dal suo comportamento di giudizio — le due leve più direttamente azionabili per le strategie di marketing personalizzato.
 
 ## Selezione del k Ottimale per i Consumatori
 
@@ -905,6 +1000,12 @@ ggplot(metriche_rec_long, aes(x = k, y = valore, colour = metrica)) +
   tema_cantina
 ```
 
+Per i consumatori, le metriche mostrano un comportamento più regolare rispetto ai vini, grazie alla dimensionalità ridotta (2 feature) e alla maggiore numerosità del campione (2.000 osservazioni).
+Il pannello **Pseudo-F** presenta una crescita fino a k = 7 con un plateau successivo, suggerendo che la separazione inter-cluster continua a migliorare ma con rendimenti decrescenti oltre k = 4–5.
+Il pannello **R²** segue la classica curva di saturazione, con un guadagno marcato da k = 2 (0.45) a k = 3 (0.68) e progressivamente minore a k superiori: il gomito è visibile tra k = 3 e k = 4.
+Il pannello **Silhouette** mostra il valore più alto in k = 3 (0.489), con una caduta netta oltre k = 4: questo è il criterio più informativo per dataset con struttura cluster ben definita e punta chiaramente a **k = 3** come scelta ottimale.
+I tre criteri convergono su k = 3, segnale di robustezza della segmentazione.
+
 Come per i vini, la Gap Statistic offre un controllo formale indipendente dai criteri empirici, confermando o suggerendo di rivedere il k individuato dalla Silhouette.
 
 ```{r gap-rec}
@@ -920,6 +1021,9 @@ print(gap_rec$Tab)
 cat("\nIl numero ottimale di cluster (k) calcolato tramite Gap Statistic è:", k_ottimale_gap_rec, "\n")
 ```
 
+La Gap Statistic conferma **k = 3** come numero ottimale di cluster per i consumatori, allineandosi con la convergenza già osservata negli indici empirici.
+I valori di Gap crescono monotonicamente da k = 1 a k = 5 (da 0.50 a 0.65), ma la regola di Tibshirani identifica k = 3 come il punto di equilibrio tra semplicità del modello e qualità della segmentazione.
+Tre cluster di consumatori rappresentano una granularità ottimale per la gestione operativa: abbastanza fini da costruire strategie differenziate, abbastanza ampi da essere gestiti con risorse di marketing limitate.
 
 ## Profilazione dei Cluster di Consumatori
 
@@ -945,8 +1049,8 @@ profilo_rec <- recensioni_full %>%
     n_recensioni      = n(),
     .groups           = "drop"
   ) %>%
-  arrange(valutazione_media) %>%          # ordina per la metrica scelta
-  mutate(rank = row_number()) %>%         # posizione 1..K basata sull'ordinamento
+  arrange(valutazione_media) %>%
+  mutate(rank = row_number()) %>%
   mutate(cluster_label = case_when(
     rank == 1 ~ "Adulti — Bassa valutazione",
     rank == 2 ~ "Giovani — Valutazione media",
@@ -957,22 +1061,26 @@ profilo_rec <- recensioni_full %>%
 
 kable(profilo_rec, caption = "Profilo dei Cluster di Consumatori") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-
 ```
 
----
+La tabella di profilazione rivela tre segmenti di consumatori con caratteristiche ben distinte.
+Il segmento **"Adulti — Bassa valutazione"** (715 recensori, età media 57.8 anni) esprime giudizi sistematicamente inferiori (media 5.78): si tratta di consumatori maturi e probabilmente più esigenti o abituati a standard elevati, che potrebbero essere avvicinati con comunicazioni che enfatizzano il metodo produttivo biologico e la certificazione.
+
+Il segmento **"Giovani — Valutazione media"** (755 recensori, età media 27.5 anni) è il più numeroso e assegna valutazioni medie (6.71): rappresenta il core target per azioni di brand awareness sui canali digitali, dove la giovane età e la propensione all'esplorazione si traducono in opportunità di fidelizzazione precoce.
+
+Il segmento **"Adulti — Alta valutazione"** (530 recensori, età media 57.6 anni) è il più favorevole al brand (media 7.58) pur condividendo l'età media con il cluster a bassa valutazione: questa distinzione suggerisce che la variabile età da sola non è sufficiente a spiegare il comportamento di valutazione, e che fattori comportamentali (es. frequenza di acquisto, esperienza pregressa con vini biologici) giocano un ruolo determinante.
+
+------------------------------------------------------------------------
 
 # Analisi Integrata: Cluster di Vini e Preferenze dei Consumatori
 
 Incrociare i cluster dei vini con i cluster dei consumatori rivela quale segmento di prodotti è più apprezzato da quale specifico profilo di clientela.
-[Inference] Questo insight è direttamente utilizzabile per costruire bundle di prodotti, campagne mirate e strategie di upselling coerenti con i valori etici del brand.
+Questo insight è direttamente utilizzabile per costruire bundle di prodotti, campagne mirate e strategie di upselling coerenti con i valori etici del brand.
 Solo i vini e i consumatori con un cluster assegnato vengono inclusi nell'analisi, preservando la coerenza del join.
 
 ```{r analisi-integrata, fig.height=6, fig.width=6}
-# assumo che recensioni_full abbia cluster_km e che vini_clean abbia cluster_label (o crea le etichette come mostrato prima)
 set.seed(123)
 
-# --- rindici e clustering (se non già creati) ---
 k_finale_rec <- k_ottimale_gap_rec
 km_rec <- kmeans(recensioni_quant_std, centers = k_finale_rec, nstart = 200)
 
@@ -981,7 +1089,6 @@ recensioni_full$cluster_km <- NA_character_
 recensioni_full$cluster_km[righe_valide_rec] <- as.character(km_rec$cluster)
 recensioni_full$cluster_km <- factor(recensioni_full$cluster_km)
 
-# --- profilo per stabilire etichette consumatore ordinate per valutazione_media ---
 profilo_rec <- recensioni_full %>%
   filter(!is.na(cluster_km)) %>%
   group_by(cluster_km) %>%
@@ -991,10 +1098,9 @@ profilo_rec <- recensioni_full %>%
     n_recensioni      = n(),
     .groups = "drop"
   ) %>%
-  arrange(valutazione_media) %>%    # ordina in modo deterministico
+  arrange(valutazione_media) %>%
   mutate(rank_consumatore = row_number())
 
-# mappa numeri di cluster -> etichette coerenti
 label_map_consumatore <- profilo_rec %>%
   mutate(cluster_label_consumatore = case_when(
     rank_consumatore == 1 ~ "Adulti — Bassa valutazione",
@@ -1004,22 +1110,20 @@ label_map_consumatore <- profilo_rec %>%
   )) %>%
   select(cluster_km, cluster_label_consumatore)
 
-# unisci etichette coerenti a recensioni_full
 recensioni_lab <- recensioni_full %>%
   filter(!is.na(cluster_km)) %>%
   left_join(label_map_consumatore, by = "cluster_km") %>%
   select(wine_id, cluster_consumatore = cluster_km, cluster_label_consumatore, valutazione)
 
-# --- per i cluster vino: costruisci etichette ordinate in modo deterministico ---
 profilo_vini <- vini_clean %>%
   filter(!is.na(cluster)) %>%
   group_by(cluster) %>%
   summarise(
-    alc_media = mean(alcohol, na.rm = TRUE),      # esempio di metrica; sostituisci se serve
+    alc_media = mean(alcohol, na.rm = TRUE),
     n = n(),
     .groups = "drop"
   ) %>%
-  arrange(desc(alc_media)) %>%   # ordina per la metrica scelta (es. alcohol)
+  arrange(desc(alc_media)) %>%
   mutate(rank_vino = row_number())
 
 label_map_vino <- profilo_vini %>%
@@ -1036,7 +1140,6 @@ vini_lab <- vini_clean %>%
   left_join(label_map_vino, by = "cluster") %>%
   select(wine_id, cluster_vino = cluster, cluster_label_vino)
 
-# --- costruzione heatmap ---
 dataset_int <- inner_join(recensioni_lab, vini_lab, by = "wine_id")
 
 heatmap_data <- dataset_int %>%
@@ -1060,24 +1163,131 @@ ggplot(heatmap_data, aes(x = cluster_label_vino, y = cluster_label_consumatore, 
   ) +
   tema_cantina +
   theme(axis.text.x = element_text(angle = 0))
-
 ```
 
----
+La heatmap di incrocio cluster × cluster è lo strumento più direttamente azionabile dell'intera analisi.
+Le celle più scure (valori più alti) indicano le combinazioni prodotto-consumatore più performanti, e il pattern emergente è chiaro: il segmento **"Adulti — Alta valutazione"** premia tutti e tre i cluster di vini con punteggi sopra 7.4, confermando che si tratta di consumatori genuinamente soddisfatti dal portafoglio biologico, indipendentemente dalla tipologia.
 
-# Export per Dashboard (Power BI / Tableau)
+Il segmento **"Adulti — Bassa valutazione"** assegna voti inferiori a tutti i cluster di vino (range 5.72–5.97), con una preferenza relativa verso i **"Ricchi • Aromatici"** (5.97): questo cluster è il candidato prioritario per azioni di up-education, come degustazioni guidate che spieghino il valore aggiunto del metodo biologico.
+
+Il segmento **"Giovani — Valutazione media"** mostra la preferenza più marcata per i vini **"Corposi • Alto alcol"** (6.81) e **"Ricchi • Aromatici"** (6.83), suggerendo che i giovani consumatori apprezzano la struttura e la complessità aromatica, mentre i **"Leggeri • Bianchi"** ottengono il punteggio più basso da questa fascia (6.50).
+Questa mappa strategica orienta direttamente le decisioni di abbinamento prodotto-canale: i vini corposi vanno comunicati ai giovani sui social, gli aromatici ai consumatori adulti critici come leva di riconquista, i bianchi leggeri ai consumatori alta valutazione come premium experience.
+
+------------------------------------------------------------------------
+
+# Visualizzazioni di Sintesi per la Dashboard
+
+Le due visualizzazioni seguenti sono state progettate specificamente per essere replicate in Power BI o Tableau come grafici interattivi di primo livello nella dashboard esecutiva.
+Offrono una sintesi visiva immediata dei due principali risultati dell'analisi — la distribuzione dei cluster di consumatori e il portafoglio dei cluster di vini — e fungono da punto di ingresso per la navigazione approfondita nei dettagli.
+
+```{r dashboard-consumatori, fig.height=5, fig.width=6}
+colori_cluster_cons <- c(
+  "Adulti — Alta valutazione"  = COLORE_PRIMARIO,
+  "Giovani — Valutazione media" = COLORE_ACCENT,
+  "Adulti — Bassa valutazione" = "#A5B59F"
+)
+
+recensioni_full_lab <- recensioni_full %>%
+  filter(!is.na(cluster_km)) %>%
+  left_join(label_map_consumatore, by = "cluster_km")
+
+riepilogo_cons <- recensioni_full_lab %>%
+  group_by(cluster_label_consumatore) %>%
+  summarise(
+    n             = n(),
+    eta_media     = round(mean(età, na.rm = TRUE), 1),
+    val_media     = round(mean(valutazione, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    pct           = round(100 * n / sum(n), 1),
+    etichetta     = sprintf("%s\n%d rec. (%.1f%%)\nEtà media: %.1f | Val. media: %.2f",
+                            cluster_label_consumatore, n, pct, eta_media, val_media)
+  )
+
+ggplot(riepilogo_cons, aes(
+  x    = reorder(cluster_label_consumatore, val_media),
+  y    = n,
+  fill = cluster_label_consumatore
+)) +
+  geom_col(width = 0.6, colour = "white") +
+  geom_text(
+    aes(label = sprintf("n = %d\n(%.1f%%)\nEtà: %.1f | Val: %.2f", n, pct, eta_media, val_media)),
+    hjust = -0.05, size = 3, colour = "grey20"
+  ) +
+  coord_flip() +
+  scale_fill_manual(values = colori_cluster_cons) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.35))) +
+  labs(
+    title    = "Distribuzione dei Cluster di Consumatori",
+    subtitle = "Dimensione, composizione demografica e comportamento di valutazione per segmento",
+    x        = NULL,
+    y        = "Numero di Recensioni",
+    fill     = "Segmento"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+Il grafico sintetizza in un colpo d'occhio la composizione e il comportamento di ciascun segmento di consumatori.
+I tre cluster presentano numerosità comparabili (530–755 recensori), segnale di una segmentazione equilibrata che non è dominata da un unico gruppo.
+Il segmento **"Adulti — Alta valutazione"** è il più prezioso in termini di customer equity: pur essendo il meno numeroso (530, 26.5%), esprime la valutazione media più alta (7.58) e può essere il vettore principale per il passaparola positivo e le recensioni online.
+La visualizzazione include età media e valutazione media direttamente nelle etichette, rendendola autosufficiente per la presentazione agli stakeholder senza necessità di tabelle aggiuntive.
+
+```{r dashboard-vini-cluster, fig.height=5, fig.width=6}
+colori_cluster_vino <- c(
+  "Corposi • Alto alcol"  = COLORE_PRIMARIO,
+  "Ricchi • Aromatici"    = COLORE_SECONDARIO,
+  "Leggeri • Bianchi"     = COLORE_ACCENT
+)
+
+vini_dashboard <- vini_clean %>%
+  filter(!is.na(cluster)) %>%
+  left_join(label_map_vino, by = "cluster") %>%
+  left_join(
+    dataset %>%
+      group_by(wine_id) %>%
+      summarise(val_media = round(mean(valutazione, na.rm = TRUE), 2),
+                n_rec = n(), .groups = "drop"),
+    by = "wine_id"
+  )
+
+ggplot(vini_dashboard, aes(
+  x    = reorder(id_vino, val_media),
+  y    = val_media,
+  fill = cluster_label_vino
+)) +
+  geom_col(width = 0.75, colour = "white") +
+  geom_text(
+    aes(label = sprintf("%.2f", val_media)),
+    hjust = -0.15, size = 3, colour = "grey30"
+  ) +
+  coord_flip() +
+  scale_fill_manual(values = colori_cluster_vino) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
+  labs(
+    title    = "Portafoglio Vini: Valutazione Media per Cluster",
+    subtitle = "Ogni barra rappresenta un vino, colorato per cluster di appartenenza",
+    x        = NULL,
+    y        = "Valutazione Media",
+    fill     = "Cluster"
+  ) +
+  tema_cantina
+```
+
+Il grafico a barre orizzontali del portafoglio prodotti combina in un'unica visualizzazione la classifica per valutazione media e l'appartenenza al cluster chimico.
+Il colore di ogni barra indica il cluster: bordeaux per i **"Corposi • Alto alcol"**, rosso scuro per i **"Ricchi • Aromatici"** e ocra per i **"Leggeri • Bianchi"**.
+Emerge immediatamente che i vini con le valutazioni più alte appartengono prevalentemente ai cluster Corposi e Ricchi (Nerello Mascalese, Barolo, Ribolla Gialla, Barbera d'Asti), mentre i due bianchi leggeri (Vermentino e Soave) si collocano nella fascia media della classifica.
+Questa visualizzazione è il punto di partenza ideale per la costruzione del filtro interattivo nella dashboard: selezionando un cluster si filtrano automaticamente i vini corrispondenti e le metriche di valutazione aggiornate.
+
+------------------------------------------------------------------------
+
+# Export per Dashboard
 
 ## Preparazione dei File di Export
 
 L'export strutturato è il punto di connessione tra l'analisi in R e gli strumenti di Business Intelligence.
 I file prodotti sono progettati per essere importati direttamente in Power BI o Tableau senza trasformazioni aggiuntive, riducendo il tempo tra analisi e decisione strategica.
-
-Le coordinate PCA vengono restituite a `vini_clean` tramite un vettore inizializzato a `NA` e popolato agli indici delle righe valide — lo stesso approccio usato per l'assegnazione dei cluster — evitando così qualsiasi disallineamento di righe.
-
-Vengono esportati tre file:
-- `export_vini_cluster.csv`: il catalogo vini arricchito con il cluster di appartenenza e le coordinate PCA.
-- `export_recensioni_cluster.csv`: le recensioni arricchite con il cluster consumatore e la fascia d'età.
-- `export_dataset_unificato.csv`: il dataset join completo, pronto per analisi cross-dimensionali.
 
 ```{r export-dashboard}
 df_export_recensioni <- recensioni_full %>%
@@ -1105,6 +1315,9 @@ cat(sprintf("export_dataset_unificato.csv   → %d righe, %d colonne\n",
 cat("\nTutti i file sono codificati in UTF-8 e pronti per Power BI / Tableau.\n")
 ```
 
+I due file esportati coprono rispettivamente il livello consumatore (2.000 righe, arricchite con cluster e fascia d'età) e il livello integrato (dataset join tra vini e recensitori con le etichette cluster di entrambi).
+La codifica UTF-8 garantisce la corretta visualizzazione dei caratteri accentati italiani (nomi di vini e denominazioni) sia in Power BI che in Tableau, senza necessità di conversioni aggiuntive.
+
 ## Riepilogo delle Variabili Chiave per la Dashboard
 
 La tabella seguente funge da dizionario dati: indica per ciascun file esportato le variabili di maggiore rilevanza per la costruzione di filtri, assi, KPI e dimensioni nelle dashboard di Business Intelligence.
@@ -1116,20 +1329,20 @@ variabili_chiave <- data.frame(
     rep("export_dataset_unificato.csv", 3)
   ),
   Variabile = c(
-    "cluster_km",       # cluster consumatore (k-means)
-    "fascia_eta_rec",   # fascia età nel dataset recensioni
-    "valutazione",      # punteggio recensione (grezzo)
-    "cluster",          # cluster vino (gerarchico)
-    "fascia_eta",       # fascia età nel dataset vini (se presente)
-    "valutazione"       # valutazione (eventuale duplicato nel dataset unificato)
+    "cluster_km",
+    "fascia_eta_rec",
+    "valutazione",
+    "cluster",
+    "fascia_eta",
+    "valutazione"
   ),
   Uso_in_Dashboard = c(
-    "Filtro/colore per segmento consumatore",           # cluster_km
-    "Segmento demografico per confronto/analisi",       # fascia_eta_rec
-    "KPI principale: punteggio medio recensioni",       # valutazione (recensioni)
-    "Filtro/colore per segmento vino",                  # cluster (vini)
-    "Segmento demografico (prodotto)",                 # fascia_eta (vini)
-    "Cross-filtro prodotto × consumatore (valutazione)"# valutazione (unificato)
+    "Filtro/colore per segmento consumatore",
+    "Segmento demografico per confronto/analisi",
+    "KPI principale: punteggio medio recensioni",
+    "Filtro/colore per segmento vino",
+    "Segmento demografico (prodotto)",
+    "Cross-filtro prodotto × consumatore (valutazione)"
   ),
   stringsAsFactors = FALSE
 )
@@ -1139,32 +1352,34 @@ kable(variabili_chiave, caption = "Guida alle Variabili Chiave per la Dashboard"
   column_spec(1, bold = TRUE)
 ```
 
----
+Il dizionario dati facilita l'onboarding del team di BI che riceverà i file per la costruzione della dashboard, riducendo il rischio di utilizzo improprio delle variabili e garantendo coerenza interpretativa tra i due file esportati.
+In particolare, si segnala che la variabile `valutazione` compare in entrambi i file con lo stesso nome ma in contesti diversi: nel file recensioni è la singola valutazione grezza, nel dataset unificato è già aggregata per coppia cluster vino × cluster consumatore.
+
+------------------------------------------------------------------------
 
 # Conclusioni e Insight Strategici
 
 L'analisi ha prodotto i seguenti risultati principali:
 
-**Qualità e Chimica dei Vini**: le distribuzioni delle variabili chimiche evidenziano profili distinti per tipologia di vino.
-La matrice di correlazione rivela coppie di variabili ridondanti (es. solfiti liberi/totali) che è opportuno monitorare nella formulazione dei prodotti biologici.
+- **Qualità e Chimica dei Vini**: le distribuzioni delle variabili chimiche evidenziano profili distinti per tipologia di vino.
+  La matrice di correlazione rivela coppie di variabili ridondanti (es. solfiti liberi/totali) che è opportuno monitorare nella formulazione dei prodotti biologici.
 
-**Segmentazione dei Vini**: il clustering k-means ha identificato 3 famiglie di vini con profili chimici omogenei, costruite sull'intero set di 11 caratteristiche chimiche standardizzate.
-Ogni cluster corrisponde a una potenziale linea di prodotto con un posizionamento di mercato distinto.
+- **Segmentazione dei Vini**: il clustering gerarchico su PCA ha identificato 3 famiglie di vini con profili chimici omogenei: *Corposi • Alto alcol*, *Ricchi • Aromatici* e *Leggeri • Bianchi*.
+  Ogni cluster corrisponde a una potenziale linea di prodotto con un posizionamento di mercato distinto e una narrazione di brand coerente.
 
-**Segmentazione dei Consumatori**: i consumatori si raggruppano in 3 cluster caratterizzati da combinazioni distinte di età e comportamento di valutazione.
-L'impiego di tutte le variabili demografiche disponibili — con encoding appropriato delle variabili categoriche — produce segmenti più informativi rispetto a un approccio limitato alle sole variabili continue.
-Questi segmenti costituiscono la base per campagne di marketing personalizzate e coerenti con i valori etici del brand.
+- **Segmentazione dei Consumatori**: i consumatori si raggruppano in 3 cluster caratterizzati da combinazioni distinte di età e comportamento di valutazione: *Adulti — Alta valutazione*, *Giovani — Valutazione media* e *Adulti — Bassa valutazione*.
+  Questi segmenti costituiscono la base per campagne di marketing personalizzate e coerenti con i valori etici del brand.
 
-**Preferenze Demografiche**: l'analisi integrata cluster × fascia d'età rivela quali famiglie di vini massimizzano la soddisfazione in ciascun segmento demografico, fornendo una mappa strategica per decisioni di prodotto, pricing e comunicazione.
+- **Preferenze Demografiche**: l'analisi integrata cluster × fascia d'età rivela quali famiglie di vini massimizzano la soddisfazione in ciascun segmento demografico, fornendo una mappa strategica per decisioni di prodotto, pricing e comunicazione.
+  Il Kruskal-Wallis conferma che le differenze tra fasce d'età sono statisticamente significative (p = 0.028), mentre il test sulla nazionalità indica che anche l'origine geografica del consumatore influenza il giudizio (p = 0.002): due leve azionabili per la segmentazione delle campagne internazionali.
 
 **Prossimi Passi Raccomandati**:
 
-  - Integrare dati di vendita per calcolare il Customer Lifetime Value per cluster di consumatori.
-  - Applicare modelli di raccomandazione (collaborative filtering) per personalizzare le proposte di acquisto.
-  - Estendere l'analisi con dati geografici per identificare pattern di preferenza per nazionalità a livello regionale.
-  - Sviluppare una dashboard interattiva in Power BI o Tableau utilizzando i file di export prodotti.
+- Integrare dati di vendita per calcolare il Customer Lifetime Value per cluster di consumatori.
+- Applicare modelli di raccomandazione (collaborative filtering) per personalizzare le proposte di acquisto.
+- Estendere l'analisi con dati geografici per identificare pattern di preferenza per nazionalità a livello regionale.
+- Sviluppare una dashboard interattiva in Power BI o Tableau utilizzando i file di export prodotti.
 
----
+------------------------------------------------------------------------
 
 *Report redatto dagli associati IT&BI Colombini Francesco & Lombardo Mattia - JEMIB Milano Bicocca 2026*
-
