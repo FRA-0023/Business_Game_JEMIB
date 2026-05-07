@@ -199,7 +199,7 @@ Questo passo è incluso come salvaguardia procedurale, indispensabile in qualsia
 I vini biologici tendono a presentare livelli di solfiti più bassi rispetto ai convenzionali, poiché la certificazione biologica limita l'uso di SO₂ aggiunta.
 Visualizzare la distribuzione di ciascuna variabile chimica per tipologia di vino permette di verificare empiricamente questo posizionamento e di comunicarlo con dati oggettivi.
 
-```{r distribuzione-chimica, fig.height=7, fig.width=8}
+```{r distribuzione-chimica, fig.height=5, fig.width=6}
 vini_long <- vini_clean %>%
   select(all_of(COLONNE_CHIMICHE), type) %>%
   pivot_longer(cols = all_of(COLONNE_CHIMICHE), names_to = "variabile", values_to = "valore")
