@@ -1,0 +1,211 @@
+
+# Graduatoria Generale per Valutazione con Cluster Vini
+
+La classifica globale assegna a ogni vino la propria valutazione media su tutte le recensioni disponibili e colora le barre secondo il cluster di appartenenza.
+Questo grafico permette di verificare se i cluster chimici individuati corrispondono anche a una gerarchia di gradimento percepito — un collegamento diretto tra profilo produttivo e performance commerciale.
+
+```{r classifica-globale}
+classifica_globale <- dataset %>%
+  group_by(id_vino) %>%
+  summarise(
+    val_media = mean(valutazione, na.rm = TRUE),
+    n_rec     = n(),
+    .groups   = "drop"
+  ) %>%
+  left_join(vini_con_label, by = "id_vino") %>%
+  arrange(val_media)
+
+ggplot(classifica_globale, aes(
+  x    = reorder(id_vino, val_media),
+  y    = val_media,
+  fill = cluster_label_vino
+)) +
+  geom_col(colour = "white", width = 0.8) +
+  geom_text(
+    aes(label = sprintf("%.2f", val_media)),
+    hjust = -0.15, size = 3.5, colour = "grey30"
+  ) +
+  coord_flip() +
+  scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
+  scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title    = "Classifica Globale Vini",
+    subtitle = "Valutazione media su tutte le recensioni, colorata per cluster chimico",
+    x        = NULL,
+    y        = "Valutazione Media",
+    fill     = "Cluster Vino"
+  ) +
+  tema_cantina
+```
+
+---
+
+## Graduatoria dei Vini per Fascia d'Età
+
+La funzione `crea_grafico_fascia` genera automaticamente una classifica per ogni fascia d'età, colorando i vini secondo il loro cluster chimico.
+Produrre grafici identici per struttura ma differenziati per segmento permette di confrontare visivamente se il ranking dei vini cambia al variare del profilo demografico del recensore — informazione strategica per la pianificazione dei bundle di prodotto.
+
+```{r graduatoria-vini-fasce, fig.height=7}
+crea_grafico_fascia <- function(f_eta, col_fascia) {
+  dati <- dataset %>%
+    filter(!!sym(col_fascia) == f_eta) %>%
+    group_by(id_vino) %>%
+    summarise(
+      val_media = mean(valutazione, na.rm = TRUE),
+      n_rec     = n(),
+      .groups   = "drop"
+    ) %>%
+    filter(n_rec >= 1) %>%
+    left_join(vini_con_label, by = "id_vino") %>%
+    arrange(val_media)
+
+  if (nrow(dati) == 0) return(NULL)
+
+  ggplot(dati, aes(
+    x    = reorder(id_vino, val_media),
+    y    = val_media,
+    fill = cluster_label_vino
+  )) +
+    geom_col(colour = "white", width = 0.8) +
+    geom_text(
+      aes(label = sprintf("%.2f", val_media)),
+      hjust = -0.15, size = 3.5, colour = "grey30"
+    ) +
+    coord_flip() +
+    scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
+    scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
+    labs(
+      title    = paste("Classifica Vini — Fascia d'Età:", f_eta),
+      subtitle = "I colori indicano il cluster chimico di appartenenza del vino",
+      x        = NULL,
+      y        = "Valutazione Media",
+      fill     = "Cluster Vino"
+    ) +
+    tema_cantina
+}
+
+for (f in levels(factor(dataset$fascia_eta))) {
+  p <- crea_grafico_fascia(f, "fascia_eta")
+  if (!is.null(p)) print(p)
+}
+```
+
+```{r graduatoria-vini-3classi, fig.height=7}
+for (f in levels(factor(dataset$nuova_fascia_eta))) {
+  p <- crea_grafico_fascia(f, "nuova_fascia_eta")
+  if (!is.null(p)) print(p)
+}
+```
+
+---
+
+# Analisi delle Valutazioni per Nazionalità
+
+## Graduatoria dei Vini per Nazionalità
+
+Il modello di regressione ha già evidenziato che la nazionalità è un predittore significativo della valutazione (in particolare per i consumatori francesi).
+Produrre la classifica dei vini separatamente per ogni nazionalità permette di verificare se questa differenza si traduce anche in una diversa gerarchia di preferenze di prodotto — informazione chiave per la strategia di export.
+
+```{r graduatoria-vini-naz, fig.height=7}
+crea_grafico_naz <- function(naz) {
+  dati <- dataset %>%
+    filter(nazionalita == naz) %>%
+    group_by(id_vino) %>%
+    summarise(
+      val_media = mean(valutazione, na.rm = TRUE),
+      n_rec     = n(),
+      .groups   = "drop"
+    ) %>%
+    filter(n_rec >= 1) %>%
+    left_join(vini_con_label, by = "id_vino") %>%
+    arrange(val_media)
+
+  if (nrow(dati) == 0) return(NULL)
+
+  ggplot(dati, aes(
+    x    = reorder(id_vino, val_media),
+    y    = val_media,
+    fill = cluster_label_vino
+  )) +
+    geom_col(colour = "white", width = 0.8) +
+    geom_text(
+      aes(label = sprintf("%.2f", val_media)),
+      hjust = -0.15, size = 3.5, colour = "grey30"
+    ) +
+    coord_flip() +
+    scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
+    scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
+    labs(
+      title    = paste("Classifica Vini — Per Nazionalità del consumatore:", naz),
+      subtitle = "I colori indicano il cluster chimico di appartenenza del vino",
+      x        = NULL,
+      y        = "Valutazione Media",
+      fill     = "Cluster Vino"
+    ) +
+    tema_cantina
+}
+
+for (n in levels(factor(dataset$nazionalita))) {
+  p <- crea_grafico_naz(n)
+  if (!is.null(p)) print(p)
+}
+```
+
+## Boxplot delle Valutazioni per Nazionalità
+
+Il boxplot permette di verificare se la differenza di media già rilevata dal modello sia dovuta a una distribuzione sistematicamente più bassa o alla presenza di pochi recensori molto critici — due situazioni che richiedono risposte strategiche molto diverse.
+
+```{r boxplot-naz, fig.height=5}
+ggplot(dataset, aes(x = nazionalita, y = valutazione, fill = nazionalita)) +
+  geom_boxplot(alpha = 0.8, outlier.colour = COLORE_SECONDARIO, outlier.size = 1.5) +
+  geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, colour = "grey50") +
+  scale_fill_manual(values = colorRampPalette(c(COLORE_NEUTRO, COLORE_PRIMARIO))(
+    length(levels(factor(dataset$nazionalita)))
+  )) +
+  labs(
+    title    = "Distribuzione delle Valutazioni per Nazionalità",
+    subtitle = "Ogni punto rappresenta una singola recensione",
+    x        = "Nazionalità",
+    y        = "Valutazione"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+## Intervalli di Confidenza Bootstrap per Nazionalità
+
+Se gli IC per nazionalità non si sovrappongono, la differenza è statisticamente robusta e giustifica una strategia di comunicazione dedicata per ciascun mercato geografico.
+
+```{r ic-bootstrap-naz, fig.height=5}
+ic_naz <- dataset %>%
+  group_by(nazionalita) %>%
+  do({
+    b_out <- boot(data = .$valutazione, statistic = get_mean, R = 2000)
+    ci    <- boot.ci(b_out, type = "perc")
+    data.frame(
+      media  = b_out$t0,
+      ic_inf = ci$percent[4],
+      ic_sup = ci$percent[5],
+      n_obs  = nrow(.)
+    )
+  }) %>%
+  ungroup()
+
+ggplot(ic_naz, aes(x = nazionalita, y = media, color = nazionalita)) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.3, linewidth = 1) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0("n=", n_obs), y = ic_inf), vjust = 2, size = 3.5) +
+  scale_color_manual(values = colorRampPalette(c(COLORE_PRIMARIO, COLORE_ACCENT))(
+    length(unique(ic_naz$nazionalita))
+  )) +
+  labs(
+    title    = "Intervalli di Confidenza 95% — Valutazione per Nazionalità",
+    subtitle = "Bootstrap percentile (2000 repliche)",
+    x        = "Nazionalità",
+    y        = "Valutazione Media"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+---
