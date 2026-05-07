@@ -737,7 +737,7 @@ La standardizzazione porta ogni variabile a media 0 e deviazione standard 1, gar
 Utilizzare tre criteri complementari — R², Silhouette e Pseudo-F — riduce il rischio di scegliere un k sub-ottimale basandosi su un solo indicatore.
 Il criterio del gomito sull'R² indica quando l'aggiunta di un cluster porta un guadagno marginale decrescente; la Silhouette misura la coesione interna e la separazione tra cluster; lo Pseudo-F premia le soluzioni in cui la varianza inter-cluster è massima rispetto a quella intra-cluster.
 
-```{r metriche-vini, fig.height=6, fig.width=6}
+```{r metriche-vini, fig.height=4, fig.width=6}
 ks <- 2:10
 
 metriche_vini <- do.call(rbind, lapply(ks, function(k) {
@@ -806,7 +806,7 @@ Il valore k = 3 viene adottato come scelta definitiva per il clustering gerarchi
 Con soli 20 vini e 11 variabili chimiche, il rapporto osservazioni/variabili è troppo basso per garantire stabilità al k-means standard.
 Si adottano due accorgimenti: una riduzione dimensionale via PCA prima del clustering (per eliminare il rumore nelle distanze), e il clustering gerarchico come risultato primario — più affidabile con dataset piccoli perché non richiede di specificare k a priori e produce gruppi verificabili visivamente.
 
-```{r clustering-vini-adattato, fig.height=6, fig.width=6}
+```{r clustering-vini-adattato, fig.height=4, fig.width=6}
 pca_pre <- prcomp(vini_quant_std)
 var_cum  <- cumsum(summary(pca_pre)$importance[2, ])
 n_comp   <- which(var_cum >= 0.80)[1]
@@ -918,7 +918,7 @@ La profilazione assegna un'identità interpretabile a ciascun cluster, traducend
 Questo è il passaggio che trasforma un risultato algoritmico in un insight di business comunicabile — ad esempio: "Cluster 1: Corposi ad alto contenuto alcolico e basso residuo zuccherino".
 La tabella seguente riporta i valori medi assoluti (non normalizzati) per ciascuna variabile chimica, utili per la comunicazione tecnica con i responsabili di cantina.
 
-```{r profilo-vini-gerarchico, fig.height=6, fig.width=6}
+```{r profilo-vini-gerarchico, fig.height=4, fig.width=6}
 profilo_stampa <- profilo_vini %>%
   select(-vini, -n_vini) %>%
   pivot_longer(
@@ -992,7 +992,7 @@ La scelta di utilizzare queste due dimensioni permette di individuare segmenti d
 Lo stesso approccio multi-criterio usato per i vini viene applicato ai consumatori.
 Massimizzare la Silhouette garantisce che i segmenti individuati siano internamente coesi e reciprocamente distinti: condizione necessaria affinché le campagne di marketing personalizzate abbiano un target definito e non si sovrappongano.
 
-```{r metriche-rec, fig.height=6, fig.width=6}
+```{r metriche-rec, fig.height=4, fig.width=6}
 ks_rec <- 2:10
 
 metriche_rec <- do.call(rbind, lapply(ks_rec, function(k) {
