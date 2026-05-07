@@ -139,7 +139,7 @@ La valutazione media complessiva è 6.61 su una scala da 3 a 9, con una deviazio
 
 ## Rilevazione e Trattamento degli Outlier
 
-Gli outlier nei parametri chimici del vino (es. acidità volatile molto elevata, residuo zuccherino anomalo) non sono necessariamente errori: possono riflettere vini di nicchia con profili estremi.
+Gli outlier nei parametri chimici del vino (es. acidità volatile molto elevata, residuo zuccherino anomalo) non sono necessariamente errori: possono riflettere vini di nicchia con profili estremi inferiori al 1° percentile e superiori al 99°.
 
 ```{r winsorizzazione}
 COLONNE_CHIMICHE <- c(
@@ -632,6 +632,35 @@ Nessun predittore supera la soglia critica di VIF \> 10 che richiederebbe un int
 I valori più elevati appartengono a `total.sulfur.dioxide` (GVIF_adj ≈ 2.45) e `type` (GVIF_adj ≈ 2.52), entrambi superiori a 2 ma abbondantemente sotto la soglia di allerta di 5.
 Questa situazione è coerente con quanto già osservato nella matrice di correlazione: le due variabili sui solfiti (libero e totale) condividono parte dell'informazione, ma non a un livello tale da compromettere la stabilità delle stime.
 Il modello di regressione può quindi essere interpretato con fiducia, senza necessità di eliminare o aggregare predittori per ragioni di multicollinearità.
+
+## Selezione del Modello con Stepwise AIC
+La selezione stepwise bidirezionale (direzione "both") parte dal modello completo e valuta a ogni passo se aggiungere o rimuovere un predittore migliora il criterio AIC (Akaike Information Criterion).
+A differenza del VIF — che segnala multicollinearità ma non indica quali variabili mantenere — lo stepwise produce direttamente il sottoinsieme di predittori che massimizza il compromesso tra bontà di adattamento e parsimonia del modello.
+Per una cantina biologica, un modello più parsimonioso è anche più comunicabile: permette di affermare con chiarezza quali caratteristiche del vino e del consumatore influenzano la valutazione, senza il rumore di variabili ridondanti.
+
+```{r}
+lm_step <- step(lm_completo, direction = "both", trace = FALSE)
+
+cat("\n=== MODELLO FINALE DOPO STEPWISE AIC ===\n")
+print(summary(lm_step))
+
+cat("\n=== VARIABILI RIMOSSE DALLO STEPWISE ===\n")
+vars_completo <- names(coef(lm_completo))
+vars_step     <- names(coef(lm_step))
+vars_rimosse  <- setdiff(vars_completo, vars_step)
+if (length(vars_rimosse) == 0) {
+  cat("Nessuna variabile rimossa: il modello completo è già ottimale secondo AIC.\n")
+} else {
+  cat(paste(vars_rimosse, collapse = "\n"), "\n")
+}
+```
+
+Il modello selezionato dallo stepwise AIC include 13 predittori e risulta statisticamente significativo nel suo complesso (F = 51.86, p < 2.2e-16). Il ΔAIC di 5.84 rispetto al modello completo conferma la bontà della selezione: le variabili `density`, `pH`, `sesso` e `type` sono state eliminate in quanto non apportavano potere esplicativo aggiuntivo.
+
+I predittori chimici di maggiore impatto sulla valutazione sono `volatile.acidity` (effetto negativo, β = −1.53) e `sulphates` (effetto positivo, β = +2.06), coerentemente con le aspettative enologiche. Tra le variabili demografiche, i consumatori francesi mostrano una valutazione sistematicamente inferiore (β = −0.22), suggerendo aspettative di prodotto più selettive in quel mercato.
+
+L'R² aggiustato si attesta a 0.249, indicando che il modello spiega circa il 25% della varianza nelle valutazioni. Questo valore è nella norma per modelli di preferenza sensoriale, dove fattori contestuali non osservabili — abbinamento gastronomico, aspettative individuali, occasione di consumo — contribuiscono strutturalmente alla variabilità residua. Il modello è pertanto da interpretarsi come uno strumento di analisi dei driver di soddisfazione piuttosto che come un sistema predittivo ad alta precisione.
+
 
 ------------------------------------------------------------------------
 
