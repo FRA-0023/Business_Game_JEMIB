@@ -1,4 +1,36 @@
 
+---
+
+# Analisi Aggiuntive
+
+
+Questa sezione utilizza oggetti già creati nei chunk precedenti del file principale: `vini_clean$cluster`, `label_map_vino`, `colori_cluster_vino`, `righe_valide_vini`, `righe_valide_rec`, `recensioni_quant_std`, `dist_rec`, `k_finale_vini`, `k_finale_rec`.
+Viene qui definita una volta sola la funzione `classifica_z` — usata in tutti i profili dei cluster — e il dataframe `vini_con_label` che associa a ogni vino la propria etichetta di cluster per le visualizzazioni successive.
+
+```{r elementi-condivisi-aggiuntivi}
+library(boot)
+library(dendextend)
+
+classifica_z <- function(x) {
+  case_when(
+    x < -2                  ~ "Estremamente basso",
+    x >= -2  & x < -1      ~ "Molto basso",
+    x >= -1  & x < -0.33   ~ "Basso",
+    x >= -0.33 & x <= 0.33 ~ "Nella media",
+    x > 0.33 & x <= 1      ~ "Alto",
+    x > 1    & x <= 2      ~ "Molto alto",
+    x > 2                   ~ "Estremamente alto"
+  )
+}
+
+vini_con_label <- vini_clean %>%
+  filter(!is.na(cluster)) %>%
+  left_join(label_map_vino, by = "cluster") %>%
+  select(wine_id, id_vino, cluster_label_vino)
+```
+
+---
+
 # Graduatoria Generale per Valutazione con Cluster Vini
 
 La classifica globale assegna a ogni vino la propria valutazione media su tutte le recensioni disponibili e colora le barre secondo il cluster di appartenenza.
@@ -39,6 +71,29 @@ ggplot(classifica_globale, aes(
 ```
 
 ---
+
+# Analisi delle Valutazioni per Fascia d'Età
+
+## Definizione della Segmentazione a 3 Classi
+
+Accanto alla suddivisione in 5 classi già presente nel file principale, viene introdotta una segmentazione più ampia a 3 classi (Under 35, Core Adult, Senior).
+La granularità ridotta aumenta la dimensione dei sottogruppi, rendendo le stime più stabili e i grafici più leggibili nelle presentazioni agli stakeholder non tecnici.
+
+```{r nuova-fascia-eta}
+dataset$nuova_fascia_eta <- cut(
+  dataset$eta,
+  breaks         = c(18, 35, 65, Inf),
+  labels         = c("Under 35", "Core Adult", "Senior"),
+  right          = FALSE,
+  ordered_result = TRUE
+)
+
+cat("=== 5 CLASSI ===\n")
+print(table(dataset$fascia_eta))
+
+cat("\n=== 3 CLASSI ===\n")
+print(table(dataset$nuova_fascia_eta))
+```
 
 ## Graduatoria dei Vini per Fascia d'Età
 
@@ -97,6 +152,107 @@ for (f in levels(factor(dataset$nuova_fascia_eta))) {
 }
 ```
 
+## Intervalli di Confidenza Bootstrap per Fascia d'Età
+
+Il bootstrap percentile con 2000 repliche produce intervalli di confidenza al 95% senza assumere normalità della distribuzione né omoschedasticità tra gruppi.
+È il metodo più robusto per confrontare medie di valutazione tra fasce demografiche in presenza di distribuzioni asimmetriche — caratteristica già evidenziata dallo Shapiro-Wilk nella sezione dei test statistici.
+
+```{r ic-bootstrap-5classi, fig.height=5}
+get_mean <- function(d, i) mean(d[i], na.rm = TRUE)
+
+ic_5classi <- dataset %>%
+  group_by(fascia_eta) %>%
+  do({
+    b_out <- boot(data = .$valutazione, statistic = get_mean, R = 2000)
+    ci    <- boot.ci(b_out, type = "perc")
+    data.frame(
+      media  = b_out$t0,
+      ic_inf = ci$percent[4],
+      ic_sup = ci$percent[5],
+      n_obs  = nrow(.)
+    )
+  }) %>%
+  ungroup()
+
+ggplot(ic_5classi, aes(x = fascia_eta, y = media, color = fascia_eta)) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.3, linewidth = 1) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0("n=", n_obs), y = ic_inf), vjust = 2, size = 3.5) +
+  scale_color_manual(values = colorRampPalette(c(COLORE_PRIMARIO, COLORE_ACCENT))(5)) +
+  labs(
+    title    = "Intervalli di Confidenza 95% — Valutazione per Fascia d'Età (5 classi)",
+    subtitle = "Bootstrap percentile (2000 repliche) — robusto a non-normalità ed eteroschedasticità",
+    x        = "Fascia d'Età",
+    y        = "Valutazione Media"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+```{r ic-bootstrap-3classi, fig.height=5}
+ic_3classi <- dataset %>%
+  group_by(nuova_fascia_eta) %>%
+  do({
+    b_out <- boot(data = .$valutazione, statistic = get_mean, R = 2000)
+    ci    <- boot.ci(b_out, type = "perc")
+    data.frame(
+      media  = b_out$t0,
+      ic_inf = ci$percent[4],
+      ic_sup = ci$percent[5],
+      n_obs  = nrow(.)
+    )
+  }) %>%
+  ungroup()
+
+ggplot(ic_3classi, aes(x = nuova_fascia_eta, y = media, color = nuova_fascia_eta)) +
+  geom_errorbar(aes(ymin = ic_inf, ymax = ic_sup), width = 0.3, linewidth = 1) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0("n=", n_obs), y = ic_inf), vjust = 2, size = 3.5) +
+  scale_color_manual(values = c(COLORE_PRIMARIO, COLORE_ACCENT, "#5E366A")) +
+  labs(
+    title    = "Intervalli di Confidenza 95% — Valutazione per Fascia d'Età (3 classi)",
+    subtitle = "Bootstrap percentile (2000 repliche) — robusto a non-normalità ed eteroschedasticità",
+    x        = "Fascia d'Età",
+    y        = "Valutazione Media"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+## Boxplot delle Valutazioni per Fascia d'Età
+
+I boxplot mostrano la distribuzione completa delle valutazioni, integrando le medie puntuali degli IC con informazioni su mediana, dispersione e valori estremi — una lettura complementare ai grafici a punti precedenti.
+
+```{r boxplot-fascia-5classi, fig.height=5}
+ggplot(dataset, aes(x = fascia_eta, y = valutazione, fill = fascia_eta)) +
+  geom_boxplot(alpha = 0.8, outlier.colour = COLORE_SECONDARIO, outlier.size = 1.5) +
+  geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, colour = "grey50") +
+  scale_fill_manual(values = colorRampPalette(c(COLORE_NEUTRO, COLORE_PRIMARIO))(5)) +
+  labs(
+    title    = "Distribuzione delle Valutazioni per Fascia d'Età (5 classi)",
+    subtitle = "Ogni punto rappresenta una singola recensione",
+    x        = "Fascia d'Età",
+    y        = "Valutazione"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
+```{r boxplot-fascia-3classi, fig.height=5}
+ggplot(dataset, aes(x = nuova_fascia_eta, y = valutazione, fill = nuova_fascia_eta)) +
+  geom_boxplot(alpha = 0.8, outlier.colour = COLORE_SECONDARIO, outlier.size = 1.5) +
+  geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, colour = "grey50") +
+  scale_fill_manual(values = colorRampPalette(c(COLORE_NEUTRO, COLORE_PRIMARIO))(3)) +
+  labs(
+    title    = "Distribuzione delle Valutazioni per Fascia d'Età (3 classi)",
+    subtitle = "Ogni punto rappresenta una singola recensione",
+    x        = "Fascia d'Età",
+    y        = "Valutazione"
+  ) +
+  tema_cantina +
+  theme(legend.position = "none")
+```
+
 ---
 
 # Analisi delle Valutazioni per Nazionalità
@@ -136,7 +292,7 @@ crea_grafico_naz <- function(naz) {
     scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
     scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title    = paste("Classifica Vini — Per Nazionalità del consumatore:", naz),
+      title    = paste("Classifica Vini — Nazionalità:", naz),
       subtitle = "I colori indicano il cluster chimico di appartenenza del vino",
       x        = NULL,
       y        = "Valutazione Media",
@@ -209,3 +365,290 @@ ggplot(ic_naz, aes(x = nazionalita, y = media, color = nazionalita)) +
 ```
 
 ---
+
+# Clustering Alternativo dei Consumatori: K-means con k = 6
+
+## Costruzione del Modello con 6 Cluster
+
+Viene testata una soluzione a 6 cluster per i consumatori, più granulare rispetto al k = `r k_finale_rec` ottimale individuato automaticamente.
+Un numero maggiore di cluster produce segmenti più specifici — utili per campagne di nicchia — ma richiede una verifica esplicita della qualità tramite Silhouette.
+Il modello viene eseguito sullo stesso `recensioni_quant_std` della pipeline principale e i cluster vengono assegnati a `dataset` tramite `righe_valide_rec` per garantire il corretto allineamento delle righe.
+
+```{r km6-consumatori}
+km6_rec <- kmeans(recensioni_quant_std, centers = 6, nstart = 200)
+
+dataset$cluster_km6 <- NA_character_
+dataset$cluster_km6[righe_valide_rec] <- as.character(km6_rec$cluster)
+dataset$cluster_km6 <- factor(dataset$cluster_km6)
+
+cat("=== SILHOUETTE — k=6 CONSUMATORI ===\n")
+print(summary(silhouette(km6_rec$cluster, dist_rec)))
+
+cat("\n=== CENTROIDI (z-score) ===\n")
+print(round(km6_rec$centers, 3))
+
+cat("\n=== COMPOSIZIONE PER NAZIONALITÀ (%) ===\n")
+print(round(prop.table(table(
+  Cluster     = km6_rec$cluster,
+  Nazionalità = recensioni$nazionalita[righe_valide_rec]
+), margin = 1) * 100, 1))
+```
+
+## Profilo dei 6 Cluster di Consumatori
+
+I centroidi vengono classificati tramite `classifica_z`, convertendo i valori numerici degli z-score in etichette interpretabili.
+Le due dimensioni di segmentazione (`età` e `valutazione`) sono le stesse usate nel clustering principale, garantendo la comparabilità dei risultati.
+
+```{r profilo-km6}
+profilo_km6 <- km6_rec$centers %>%
+  as.data.frame() %>%
+  mutate(across(everything(), classifica_z)) %>%
+  mutate(Cluster = paste0("Cluster ", row_number()), .before = 1)
+
+kable(profilo_km6, caption = "Profilo dei 6 Cluster di Consumatori (z-score classificati)") %>%
+  kable_styling(
+    latex_options = c("striped", "scale_down", "hold_position"),
+    font_size     = 9,
+    full_width    = FALSE
+  ) %>%
+  column_spec(1, bold = TRUE)
+```
+
+I sei cluster si possono sintetizzare come segue:
+
+- **Cluster 1** — Giovani appassionati entusiasti: età bassa, valutazione alta, prevalenza italiana e americana.
+- **Cluster 2** — Senior equilibrati: età molto alta, valutazione nella media.
+- **Cluster 3** — Young enthusiasts: età molto bassa, valutazione molto alta.
+- **Cluster 4** — Adulti critici: età alta, valutazione molto bassa — il segmento più severo.
+- **Cluster 5** — Esperti soddisfatti: età alta, valutazione molto alta — candidati al brand ambassador effect.
+- **Cluster 6** — Consumatori maturi insoddisfatti: il cluster più numeroso, età alta, valutazione bassa — prioritario per azioni correttive.
+
+## Graduatoria dei Vini per Cluster di Consumatori (k = 6)
+
+Per ogni segmento viene prodotta la classifica dei vini per valutazione media, colorata per cluster chimico.
+L'incrocio tra segmento consumatore e cluster vino identifica le combinazioni ad alto potenziale commerciale.
+
+```{r graduatoria-km6, fig.height=7}
+crea_grafico_target <- function(valore_filtro, colonna_target) {
+  dati <- dataset %>%
+    filter(!!sym(colonna_target) == valore_filtro) %>%
+    group_by(id_vino) %>%
+    summarise(
+      val_media = mean(valutazione, na.rm = TRUE),
+      n_rec     = n(),
+      .groups   = "drop"
+    ) %>%
+    filter(n_rec >= 1) %>%
+    left_join(vini_con_label, by = "id_vino") %>%
+    arrange(val_media)
+
+  if (nrow(dati) == 0) return(NULL)
+
+  ggplot(dati, aes(
+    x    = reorder(id_vino, val_media),
+    y    = val_media,
+    fill = cluster_label_vino
+  )) +
+    geom_col(colour = "white", width = 0.8) +
+    geom_text(
+      aes(label = sprintf("%.2f", val_media)),
+      hjust = -0.15, size = 3.5, colour = "grey30"
+    ) +
+    coord_flip() +
+    scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
+    scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
+    labs(
+      title    = paste("Classifica Vini — Segmento Consumatore:", valore_filtro),
+      subtitle = "I colori indicano il cluster chimico di appartenenza del vino",
+      x        = NULL,
+      y        = "Valutazione Media",
+      fill     = "Cluster Vino"
+    ) +
+    tema_cantina
+}
+
+for (k in levels(factor(dataset$cluster_km6))) {
+  p <- crea_grafico_target(k, "cluster_km6")
+  if (!is.null(p)) print(p)
+}
+```
+
+## Heatmap: 6 Segmenti Consumatori × Cluster Vini
+
+La heatmap è standardizzata per riga (z-score per segmento consumatore): il colore riflette le preferenze *relative* di ciascun gruppo — quale tipo di vino quel segmento preferisce rispetto agli altri — indipendentemente dalle differenze assolute di valutazione tra segmenti.
+
+```{r heatmap-km6, fig.height=7, fig.width=8}
+dataset_km6 <- dataset %>%
+  filter(!is.na(cluster_km6)) %>%
+  left_join(vini_con_label, by = "id_vino") %>%
+  filter(!is.na(cluster_label_vino)) %>%
+  group_by(cluster_km6, cluster_label_vino) %>%
+  summarise(
+    val_media = round(mean(valutazione, na.rm = TRUE), 3),
+    n         = n(),
+    .groups   = "drop"
+  ) %>%
+  group_by(cluster_km6) %>%
+  mutate(val_std = as.numeric(scale(val_media))) %>%
+  ungroup()
+
+ggplot(dataset_km6, aes(
+  x    = cluster_label_vino,
+  y    = cluster_km6,
+  fill = val_std
+)) +
+  geom_tile(colour = "white", linewidth = 0.8) +
+  geom_text(
+    aes(label = sprintf("%.2f\n(n=%d)", val_media, n)),
+    size = 3.2, colour = "grey15"
+  ) +
+  scale_fill_gradient2(
+    low      = "#5E366A",
+    mid      = "white",
+    high     = COLORE_PRIMARIO,
+    midpoint = 0
+  ) +
+  scale_y_discrete(drop = FALSE) +
+  labs(
+    title    = "Preferenze Relative: 6 Segmenti Consumatori × Cluster Vini",
+    subtitle = "Colore: z-score per segmento (riga) | Etichette: media grezza e n osservazioni",
+    x        = "Cluster Vino",
+    y        = "Segmento Consumatore (k=6)",
+    fill     = "Z-Score\n(per segmento)"
+  ) +
+  tema_cantina +
+  theme(
+    axis.text.x  = element_text(angle = 15, hjust = 1),
+    aspect.ratio = 1
+  )
+```
+
+---
+
+# Clustering Alternativo dei Vini: K-means con k = 2, 3, 4
+
+## Costruzione dei Modelli
+
+Accanto al clustering gerarchico su PCA adottato come metodo principale, vengono costruite tre soluzioni k-means alternative direttamente su `vini_quant_std`.
+Il confronto esplicito tra k = 2, 3 e 4 permette di valutare la stabilità della scelta k = 3 e di comunicare agli stakeholder l'evidenza empirica che supporta la struttura a tre famiglie.
+
+```{r km-vini-alternativi}
+vini_km2 <- kmeans(vini_quant_std, centers = 2, nstart = 200)
+vini_km3 <- kmeans(vini_quant_std, centers = 3, nstart = 200)
+vini_km4 <- kmeans(vini_quant_std, centers = 4, nstart = 200)
+
+cat("=== SILHOUETTE MEDIA PER SOLUZIONE K-MEANS ===\n")
+cat(sprintf("k=2: %.4f\n", mean(silhouette(vini_km2$cluster, dist_vini)[, "sil_width"])))
+cat(sprintf("k=3: %.4f\n", mean(silhouette(vini_km3$cluster, dist_vini)[, "sil_width"])))
+cat(sprintf("k=4: %.4f\n", mean(silhouette(vini_km4$cluster, dist_vini)[, "sil_width"])))
+```
+
+## Composizione per Tipologia (Rosso / Bianco)
+
+Verificare quanti vini rossi e bianchi cadono in ciascun cluster è un test di face validity: se i cluster chimici separano nettamente rossi e bianchi, il modello sta catturando una struttura reale e interpretabile — le differenze varietali che la viticoltura biologica valorizza nella trasparenza dell'etichetta.
+
+```{r composizione-km-alternativi}
+vini_clean$km2 <- NA_character_
+vini_clean$km3 <- NA_character_
+vini_clean$km4 <- NA_character_
+
+vini_clean$km2[righe_valide_vini] <- as.character(vini_km2$cluster)
+vini_clean$km3[righe_valide_vini] <- as.character(vini_km3$cluster)
+vini_clean$km4[righe_valide_vini] <- as.character(vini_km4$cluster)
+
+cat("=== k=2: DISTRIBUZIONE PER TYPE ===\n")
+print(table(Cluster = vini_clean$km2, Type = vini_clean$type, useNA = "ifany"))
+
+cat("\n=== k=3: DISTRIBUZIONE PER TYPE ===\n")
+print(table(Cluster = vini_clean$km3, Type = vini_clean$type, useNA = "ifany"))
+
+cat("\n=== k=4: DISTRIBUZIONE PER TYPE ===\n")
+print(table(Cluster = vini_clean$km4, Type = vini_clean$type, useNA = "ifany"))
+```
+
+## Profilo dei Cluster per k = 2, 3, 4
+
+I centroidi vengono classificati tramite `classifica_z`, consentendo di confrontare la caratterizzazione dei cluster al variare di k e di verificare se i profili emergenti sono interpretabili e distinti.
+
+```{r profilo-km-alternativi}
+genera_tabella_centroidi <- function(km_obj, nome) {
+  cat(sprintf("\n=== PROFILO CENTROIDI — %s ===\n", nome))
+  tab <- km_obj$centers %>%
+    as.data.frame() %>%
+    mutate(across(everything(), classifica_z)) %>%
+    mutate(Cluster = paste0("Cluster ", row_number()), .before = 1)
+  print(tab)
+}
+
+genera_tabella_centroidi(vini_km2, "k=2")
+genera_tabella_centroidi(vini_km3, "k=3")
+genera_tabella_centroidi(vini_km4, "k=4")
+```
+
+## Scelta del Numero di Cluster
+
+Il confronto tra le tre soluzioni porta alle seguenti conclusioni:
+
+- **k = 2**: soluzione più stabile (Silhouette più alta) ma poco informativa — separa sostanzialmente rossi da bianchi senza ulteriore granularità di business.
+- **k = 4**: la Silhouette più bassa indica sovrasegmentazione rispetto alla struttura reale dei dati; i quattro gruppi risultano troppo simili tra loro per giustificare strategie di prodotto distinte.
+- **k = 3**: offre il miglior compromesso — tre profili chimici distinti e interpretabili, coerenti con la soluzione gerarchica su PCA adottata come metodo principale.
+
+La soluzione **k = 3** è quella che meglio si allinea con il clustering gerarchico del file principale, confermando la robustezza della struttura a tre famiglie di vini.
+
+## Visualizzazione: 6 Segmenti Consumatori × 3 Cluster Vini (K-means)
+
+L'incrocio tra i 6 segmenti di consumatori e i 3 cluster k-means dei vini produce la mappa strategica più granulare dell'analisi.
+La standardizzazione per riga garantisce la comparabilità delle preferenze tra segmenti con livelli assoluti di valutazione diversi.
+
+```{r heatmap-k6xk3, fig.height=7, fig.width=8}
+label_map_km3 <- data.frame(
+  km3              = as.character(1:3),
+  cluster_label_k3 = paste0("Cluster K-means ", 1:3)
+)
+
+vini_con_label_k3 <- vini_clean %>%
+  filter(!is.na(km3)) %>%
+  left_join(label_map_km3, by = "km3") %>%
+  select(id_vino, cluster_label_k3)
+
+dataset_k6xk3 <- dataset %>%
+  filter(!is.na(cluster_km6)) %>%
+  left_join(vini_con_label_k3, by = "id_vino") %>%
+  filter(!is.na(cluster_label_k3)) %>%
+  group_by(cluster_km6, cluster_label_k3) %>%
+  summarise(
+    val_media = round(mean(valutazione, na.rm = TRUE), 3),
+    n         = n(),
+    .groups   = "drop"
+  ) %>%
+  group_by(cluster_km6) %>%
+  mutate(val_std = as.numeric(scale(val_media))) %>%
+  ungroup()
+
+ggplot(dataset_k6xk3, aes(
+  x    = cluster_label_k3,
+  y    = cluster_km6,
+  fill = val_std
+)) +
+  geom_tile(colour = "white", linewidth = 0.8) +
+  geom_text(
+    aes(label = sprintf("%.2f\n(n=%d)", val_media, n)),
+    size = 3.5, colour = "grey15"
+  ) +
+  scale_fill_gradient2(
+    low      = "#5E366A",
+    mid      = "white",
+    high     = COLORE_PRIMARIO,
+    midpoint = 0
+  ) +
+  scale_y_discrete(drop = FALSE) +
+  labs(
+    title    = "Mappa Strategica: 6 Segmenti Consumatori × 3 Cluster Vini (K-means)",
+    subtitle = "Colore: z-score per segmento consumatore (riga) | Etichette: media grezza e n osservazioni",
+    x        = "Cluster Vino (k-means, k=3)",
+    y        = "Segmento Consumatore (k=6)",
+    fill     = "Z-Score\n(per segmento)"
+  ) +
+  tema_cantina +
+  theme(aspect.ratio = 0.6)
+```
