@@ -209,7 +209,7 @@ ggplot(vini_long, aes(x = valore, fill = type)) +
   facet_wrap(~variabile, scales = "free", ncol = 3) +
   scale_fill_manual(values = c(COLORE_PRIMARIO, COLORE_ACCENT)) +
   labs(
-    title    = "Distribuzione delle Caratteristiche Chimiche per Tipologia di Vino",
+    title    = "Distribuzione delle Caratteristiche Chimiche per Tipologia",
     subtitle = "Ogni pannello mostra la distribuzione di una variabile chimica, distinta per tipo",
     x        = NULL,
     y        = "Conteggio",
@@ -1403,7 +1403,7 @@ crea_grafico_naz <- function(naz) {
     scale_fill_manual(values = colori_cluster_vino, na.value = "grey80") +
     scale_y_continuous(limits = c(0, 10), expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title    = paste("Classifica Vini — Per Nazionalità del consumatore:", naz),
+      title    = paste("Classifica Vini — Per Nazionalità:", naz),
       subtitle = "I colori indicano il cluster chimico di appartenenza del vino",
       x        = NULL,
       y        = "Valutazione Media",
