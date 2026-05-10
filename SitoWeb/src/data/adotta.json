@@ -1,0 +1,17 @@
+[
+    {
+        "id": 1,
+        "nome": "Seed",
+        "price_id": "price_1TVDDHAUgXd86ie1GOr72gPr"
+    },
+    {
+        "id": 2,
+        "nome": "Roots",
+        "price_id": "price_1TVDEyAUgXd86ie1aDiU4zyt"
+    },
+    {
+        "id": 3,
+        "nome": "Liber",
+        "price_id": "price_1TVDG5AUgXd86ie1c3fq377g"
+    }
+]
