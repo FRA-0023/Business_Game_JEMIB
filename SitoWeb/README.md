@@ -24,7 +24,6 @@ Il sito permette agli utenti di:
 | `/faq` | FAQ | Domande frequenti |
 | `/contatti` | Contatti | Form contatti |
 | `/email-conferma` | EmailConferma | Conferma invio email |
-| `*` | Errore | Pagina fallback / 404 |
 
 ---
 
