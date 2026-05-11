@@ -5,7 +5,7 @@
     "tipo": "R",
     "prezzo": 14.00,
     "descrizione": "Un rosso di carattere che omaggia la terra, caratterizzato da note profonde di frutti rossi maturi e un finale persistente e speziato.",
-    "src": "https://id-preview--5abd7cf8-bb43-4bbd-9805-1f0b4c9de2f0.lovable.app/assets/wine-rosso-Cz5y6Ajc.jpg",
+    "src": "/radici.jpg",
     "price_id": "price_1TUr18AUgXd86ie1IcU3xmSu"
   },
 
@@ -16,18 +16,18 @@
     "tipo": "W",
     "prezzo": 12.00,
     "descrizione": "Vino bianco brillante e sapido, contraddistinto da eleganti sentori floreali e agrumati che regalano una piacevole freschezza al palato.",
-    "src": "https://id-preview--5abd7cf8-bb43-4bbd-9805-1f0b4c9de2f0.lovable.app/assets/wine-bianco-Dfbzy40G.jpg",
+    "src": "/luce.jpg",
     "price_id": "price_1TUr3RAUgXd86ie1l1RWJT7u"
   },
 
 
   {
     "id": "prod_UTohsYPccO63Xv",
-    "nome": "VL Rosato \"Rinascita\" (0.75L)",
+    "nome": "VL Rosato \"Genesi\" (0.75L)",
     "tipo": "R",
     "prezzo": 13.00,
     "descrizione": "Un rosato vibrante che celebra l'equilibrio, con fragranti aromi di sottobosco e una spiccata mineralità ideale per accompagnare momenti conviviali.",
-    "src": "https://id-preview--5abd7cf8-bb43-4bbd-9805-1f0b4c9de2f0.lovable.app/assets/wine-rosso-Cz5y6Ajc.jpg",
+    "src": "/genesi.jpg",
     "price_id": "price_1TUr4CAUgXd86ie1BWFICqfy"
   }
 ]

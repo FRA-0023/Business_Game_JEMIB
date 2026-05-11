@@ -61,7 +61,7 @@ const Certificato = () => {
           <div className="border-b border-brown/10 mb-10"></div>
 
           <div className="space-y-6">
-            <h2 className="text-darkred text-4xl font-serif">
+            <h2 className="text-darkred text-4xl font-serif text-wrap break-all">
               {data.nome || "Nome Adottante"}
             </h2>
 

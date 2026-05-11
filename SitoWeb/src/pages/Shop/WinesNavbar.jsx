@@ -21,14 +21,14 @@ const WinesNavbar = ({
   }, 0);
 
   const nav_wrapper_style =
-    "sticky top-18 z-[90] w-full border-y border-brown/20 bg-white/95 backdrop-blur-md flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 px-6 md:px-12 lg:px-24";
+    "md:sticky md:top-18 z-[90] w-full border-y border-brown/20 bg-white/95 backdrop-blur-md flex flex-col md:flex-row md:justify-between md:items-center py-4 md:py-6 px-6 md:px-12 lg:px-24";
 
   const cart_btn_style =
-    "relative py-2.5 px-5 bg-darkred rounded-full flex items-center gap-3 hover:brightness-110 active:scale-95 transition-all duration-300 shadow-sm hover:scale-105";
+    "relative py-2 md:py-2.5 px-5 bg-darkred rounded-full flex items-center gap-3 hover:brightness-110 active:scale-95 transition-all duration-300 shadow-sm hover:scale-105";
 
   return (
     <nav className={nav_wrapper_style}>
-      <article className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-12">
+      <article className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-12">
         <h3 className="small_heading text-brown/60 text-sm">Tipologia</h3>
 
         <ul className="flex gap-3">
@@ -55,7 +55,7 @@ const WinesNavbar = ({
         </ul>
       </article>
 
-      <div className="mt-6 sm:mt-0 flex gap-6 items-center justify-between sm:justify-end border-t border-brown/10 pt-4 sm:pt-0 sm:border-none">
+      <div className="mt-6 md:mt-0 flex gap-6 items-center justify-between md:justify-end border-t border-brown/10 pt-4 md:pt-0 md:border-none">
         <h3 className="small_heading text-brown/60 text-sm">
           {filteredCount} Vini disponibili
         </h3>

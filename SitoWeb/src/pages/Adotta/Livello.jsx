@@ -13,7 +13,7 @@ const Livello = () => {
       icon: PiccolaVignaIcon,
       title: "Seed",
       quantità: "5 viti",
-      prezzo_anno: "49",
+      prezzo_anno: "79",
       vantaggi: [
         "Certificato digitale personalizzato",
         "Aggiornamenti stagionali via email",

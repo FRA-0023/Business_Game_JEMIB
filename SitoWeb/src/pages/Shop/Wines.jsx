@@ -11,7 +11,7 @@ const Wines = ({ currentShop, addItem }) => {
     ? datiVini 
     : datiVini.filter(vino => vino.tipo === activeFilter);
 
-  const wines_section_style = "w-full pb-32"; 
+  const wines_section_style = "w-full md:pb-24"; 
 
   return (
     <section className={wines_section_style}>

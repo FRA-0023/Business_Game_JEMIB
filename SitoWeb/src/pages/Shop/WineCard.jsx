@@ -32,7 +32,7 @@ const WineCard = ({ data = {}, currentShop, addItem }) => {
         <img
           src={src}
           alt="wine-img"
-          className="w-full h-full hover:scale-105 duration-500 z-[10]"
+          className="w-full h-full hover:scale-105 duration-500 z-[10] object-cover"
         />
       </div>
 

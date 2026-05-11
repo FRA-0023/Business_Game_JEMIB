@@ -9,7 +9,7 @@ const WinesCarousel = ({ wines, currentShop, addItem }) => {
   const grid_style = `
     relative w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 
     gap-24 md:gap-8 lg:gap-8 xl:gap-16 
-    py-20 px-6 sm:px-12 md:px-12 lg:px-24 xl:px-32
+    pt-16 px-6 sm:px-12 md:px-12 lg:px-24 xl:px-32
   `;
 
   return (

@@ -3,8 +3,8 @@ import BoxInfo from './BoxInfo'
 import FormContatti from './FormContatti'
 
 const section_style = 'pt-32 pb-20 bg-beige px-6 sm:px-12 md:px-16 xl:px-36 min-h-screen'
-const header_wrapper = 'max-w-[768px] mb-20'
-const content_grid = 'grid grid-cols-1 lg:grid-cols-2 gap-20 lg:gap-32 items-start'
+const header_wrapper = 'max-w-[768px] mb-8 md:mb-20'
+const content_grid = 'grid grid-cols-1 lg:grid-cols-2 lg:gap-32 items-start'
 
 
 const Contatti = () => {

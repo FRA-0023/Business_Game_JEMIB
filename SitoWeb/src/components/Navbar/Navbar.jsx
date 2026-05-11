@@ -11,7 +11,8 @@ const links = [
   { id: 3, text: "Adotta una vigna", href: "/adotta" },
   { id: 4, text: "Esperienze", href: "/esperienze" },
   { id: 5, text: "Team", href: "/team" },
-  { id: 6, text: "Contatti", href: "/contatti" }
+  { id: 6, text: "Contatti", href: "/contatti" },
+  { id: 7, text: "FAQ", href: "/faq" }
 ];
 
 
@@ -42,12 +43,12 @@ const Navbar = () => {
 
   const navbar_menu_style = `
     absolute left-0 top-18 w-full overflow-y-hidden transition-[max-height] duration-500 bg-darkbeige
-    lg:relative lg:top-0 lg:w-full lg:col-span-6 lg:bg-transparent lg:max-h-none
+    lg:relative lg:top-0 lg:w-full lg:col-span-6 lg:bg-transparent lg:max-h-none h-dvh lg:h-auto
     ${openMenuMobile ? "max-h-screen shadow-md lg:shadow-none" : "max-h-0"}
   `;
 
   const navbar_list_style = `
-    w-full flex flex-col items-center justify-center gap-10 pt-16 pb-24
+    w-full flex flex-col items-center justify-center gap-10 pt-8 md:pt-16 pb-24
     lg:flex-row lg:h-full lg:col-span-3 lg:pt-0 lg:pb-0 lg:gap-8
   `; 
 
