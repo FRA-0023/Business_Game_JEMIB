@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap');
+@import "tailwindcss";
+
+
+::selection {
+  background-color: rgba(165, 181, 159, 0.4); 
+  color: #1E1311; 
+}
+
+.bg-darkred ::selection {
+  background-color: rgba(246, 242, 233, 0.9); 
+  color: #6A0F1C; 
+}
+
+
+@theme {
+
+/* Colori */
+--color-darkred: #6A0F1C;
+--color-red: #8C1C26;
+--color-beige: #F6F2E9;
+--color-darkbeige: #F2EEE0;
+--color-green: #a5b59F;
+--color-purple: #5e366a;
+--color-brown: #1E1311;
+--color-white: #FDFCF8;
+
+/* Font */
+--font-sans: "Manrope", system-ui, sans-serif;
+--font-serif: "Noto Serif", serif;
+}
+
+
+
+@layer components {
+    /* Testi */
+  .big_title {
+    @apply text-[clamp(4rem,10vw,5.75rem)] leading-none;
+  }
+
+  .title{
+    @apply text-[clamp(2.25rem,5vw,4rem)] leading-tight font-serif
+  }
+
+
+  .small_title{
+    @apply  text-[clamp(1.5rem,3vw,1.8rem)] font-serif
+  }
+
+
+  .small_heading {
+    @apply uppercase font-medium text-base sm:text-lg md:text-xl;
+  }
+
+
+
+  .normal_paragraph{
+    @apply text-base md:text-[clamp(1rem,2vw,1.5rem)] text-balance
+  }
+
+  .small_paragraph{
+    @apply text-base italic
+  }
+
+  .big_text{
+        @apply font-serif text-[clamp(3rem,4vw,3.5rem)]
+    }
+  /* Pulsanti */
+
+  .button_switch{
+    @apply w-max px-4 py-3 border-[1.5px] outline-[1.5px] rounded-full md:px-6 md:py-4 font-medium text-sm md:text-base duration-300
+  }
+
+  .red_button{
+    @apply w-max text-white px-3 py-3 md:px-6 md:py-4 border-2 outline-[1.5px] 
+    border-darkred outline-transparent hover:outline-white bg-darkred/90 rounded-full text-sm sm:text-base
+    font-medium transition-["color"] duration-200 hover:brightness-120 hover:scale-[1.02]
+    transition-all duration-150 active:scale-[0.99] active:ring-4 active:ring-darkred/30 shadow-sm
+  }
+
+  .red_button_sm{
+    @apply w-max text-white px-2 py-2 md:px-5 md:py-3 border-2 outline-[1.5px] 
+    border-darkred outline-transparent hover:outline-white bg-darkred/90 rounded-full text-sm sm:text-base
+    font-medium transition-["color"] hover:brightness-120 hover:scale-[1.02]
+    transition-all duration-150 active:scale-90 active:ring-4 active:ring-darkred/30
+
+  }
+  
+}
